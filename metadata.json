@@ -1,0 +1,6 @@
+{
+  "name": "Kalibrasi & Verifikasi Timbangan",
+  "description": "Sistem Manajemen Kalibrasi dan Verifikasi Internal Timbangan & Alat Ukur Metrologi",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
