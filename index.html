@@ -372,40 +372,40 @@ section.view{display:none}section.view.on{display:block}
  <p class="sub" style="margin-bottom:14px">Sinkronisasi 2-arah: Anda dapat <b>menambah, mengedit, atau menghapus</b> data lewat Google Sheets maupun aplikasi web.</p>
 
  <!-- Kerangka & Script Siap Download -->
- <div style="padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:14px;font-size:13px">
-  <div style="font-weight:700;color:#166534;margin-bottom:4px">Paket Kerangka Siap Download &amp; Pasang:</div>
-  <div style="color:#15803d;font-size:12px;margin-bottom:10px;line-height:1.6">
-   Download kode script Google Apps Script (<code>Code.gs</code>) atau salin langsung untuk dipasang di <b>Ekstensi &rarr; Apps Script</b> pada spreadsheet Anda.
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-   <button class="btn sm pri" id="btnDownloadCodeGS">📥 Unduh Script Code.gs</button>
-   <button class="btn sm" id="btnDownloadTemplateHTML">📥 Unduh Panduan HTML</button>
-   <button class="btn sm" id="btnSalinScriptCode">📋 Salin Kode Script (Code.gs)</button>
-   <button class="btn sm" onclick="exportKerangkaExcel()">📊 Unduh Kerangka Excel (.xls)</button>
-  </div>
+<div style="padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:14px;font-size:13px">
+ <div style="font-weight:700;color:#166534;margin-bottom:4px">Paket Kerangka Siap Download &amp; Pasang:</div>
+ <div style="color:#15803d;font-size:12px;margin-bottom:10px;line-height:1.6">
+  Download kode script Google Apps Script (<code>Code.gs</code>) atau salin langsung untuk dipasang di <b>Ekstensi &rarr; Apps Script</b> pada spreadsheet Anda.
  </div>
-
- <div class="form" style="grid-template-columns:1fr;gap:12px">
-  <label>URL Web App Google Apps Script (Untuk Tambah/Edit/Hapus Otomatis 2-Arah)
-   <input id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
-   <small style="color:var(--muted);font-weight:normal">💡 Dapatkan URL ini dari menu <i>Terapkan (Deploy) &rarr; Penerapan Baru (Web App)</i> di Google Sheets.</small>
-  </label>
-
-  <label>ID atau Link Google Sheets Anda (Opsional untuk Buka Spreadsheet)
-   <input id="sheetInput" placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5n... atau ID spreadsheet">
-  </label>
+ <div style="display:flex;gap:8px;flex-wrap:wrap">
+  <button class="btn sm pri" id="btnDownloadCodeGS">📥 Unduh Script Code.gs</button>
+  <button class="btn sm" id="btnDownloadTemplateHTML">📥 Unduh Panduan HTML</button>
+  <button class="btn sm" id="btnSalinScriptCode">📋 Salin Kode Script (Code.gs)</button>
+  <button class="btn sm" onclick="exportKerangkaExcel()">📊 Unduh Kerangka Excel (.xls)</button>
  </div>
+</div>
 
- <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-  <button class="btn pri" id="btnPullFromSheet">⬇️ Tarik Data dari Google Sheets</button>
-  <button class="btn pri" id="btnPushToScript" style="background:#0284c7;border-color:#0284c7">⬆️ Kirim Data ke Google Sheets</button>
-  <button class="btn" id="btnExportToSheet">↗️ Buka di Google Sheets</button>
-  <button class="btn" id="btnConnectSheet">💾 Simpan URL &amp; ID</button>
- </div>
+<div class="form" style="grid-template-columns:1fr;gap:12px">
+ <label>URL Web App Google Apps Script (Terhubung Otomatis)
+  <input id="scriptUrlInput" value="https://script.google.com/macros/s/AKfycbysVEke0Z4MyfPIT_tsb5UVRah7s9gilAHfiHOVpWhBxw3BbNlTcZtep7-ITiHIMAYKAQ/exec" readonly style="background-color: #f8fafc; color: #475569; cursor: not-allowed;">
+  <small style="color:var(--muted);font-weight:normal">💡 URL Web App sudah dikonfigurasi permanen dan tersinkronisasi otomatis.</small>
+ </label>
 
- <div class="acts" style="margin-top:20px">
-  <button class="btn" onclick="$('#dlgSheets').close()">Tutup</button>
- </div>
+ <label>ID atau Link Google Sheets Anda (Opsional untuk Buka Spreadsheet)
+  <input id="sheetInput" placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5n... atau ID spreadsheet">
+ </label>
+</div>
+
+<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+ <button class="btn pri" id="btnPullFromSheet">⬇️ Tarik Data dari Google Sheets</button>
+ <button class="btn pri" id="btnPushToScript" style="background:#0284c7;border-color:#0284c7">⬆️ Kirim Data ke Google Sheets</button>
+ <button class="btn" id="btnExportToSheet">↗️ Buka di Google Sheets</button>
+ <button class="btn" id="btnConnectSheet">💾 Simpan ID Spreadsheet</button>
+</div>
+
+<div class="acts" style="margin-top:20px">
+ <button class="btn" onclick="$('#dlgSheets').close()">Tutup</button>
+</div>
 </dialog>
 
 <!-- BACKUP & EXPORT MODAL -->
