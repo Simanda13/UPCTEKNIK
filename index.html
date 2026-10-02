@@ -371,7 +371,6 @@ section.view{display:none}section.view.on{display:block}
  </div>
  <p class="sub" style="margin-bottom:14px">Sinkronisasi 2-arah: Anda dapat <b>menambah, mengedit, atau menghapus</b> data lewat Google Sheets maupun aplikasi web.</p>
 
-<!-- Kerangka & Script Siap Download -->
 <div style="padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:14px;font-size:13px">
  <div style="font-weight:700;color:#166534;margin-bottom:4px">Paket Kerangka Siap Download &amp; Pasang:</div>
  <div style="color:#15803d;font-size:12px;margin-bottom:10px;line-height:1.6">
@@ -451,24 +450,16 @@ const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt
 const Y = new Date().getFullYear();
 const TD = iso(0);
 
-// Universal Date Normalizer: Mengatasi format seperti "Fri Oct 02 2026 07:00:00 GMT+0700 (Waktu Indonesia Barat)"
+// Universal Date Normalizer
 function normDate(val) {
   if (!val) return '';
   const s = String(val).trim();
   if (!s || s === '-' || s === 'null' || s === 'undefined') return '';
-
-  // Format baku YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-
-  // Format ISO timestamp YYYY-MM-DD...
   const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (isoMatch) return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`;
-
-  // Format Google Visualization Date(YYYY, MM, DD)
   const gvizMatch = s.match(/Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)/);
   if (gvizMatch) return `${gvizMatch[1]}-${String(parseInt(gvizMatch[2], 10) + 1).padStart(2, '0')}-${gvizMatch[3].padStart(2, '0')}`;
-
-  // Format representasi Date JS: "Fri Oct 02 2026 07:00:00 GMT+0700 (Waktu Indonesia Barat)"
   const cleanStr = s.replace(/\s*\([^)]*\)$/, '');
   const parsed = new Date(cleanStr);
   if (!isNaN(parsed.getTime())) {
@@ -483,20 +474,13 @@ function normDate(val) {
 function normAllDates(db) {
   if (!db) return;
   if (Array.isArray(db.alat)) {
-    db.alat.forEach(a => {
-      a.last = normDate(a.last);
-      a.next = normDate(a.next);
-    });
+    db.alat.forEach(a => { a.last = normDate(a.last); a.next = normDate(a.next); });
   }
   if (Array.isArray(db.jadwal)) {
-    db.jadwal.forEach(j => {
-      j.tgl = normDate(j.tgl);
-    });
+    db.jadwal.forEach(j => { j.tgl = normDate(j.tgl); });
   }
   if (Array.isArray(db.periksa)) {
-    db.periksa.forEach(p => {
-      p.tgl = normDate(p.tgl);
-    });
+    db.periksa.forEach(p => { p.tgl = normDate(p.tgl); });
   }
 }
 
@@ -516,7 +500,6 @@ const fmt = d => {
   return !isNaN(dt.getTime()) ? dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : (d || '-');
 };
 
-// Default initial dataset
 const defaultDB = {
  alat: [
   {kode:'AST-0141', nama:'Timbangan Lantai Gudang A', kap:'500 kg', user:'Gudang', tempat:'UPT Metrologi Legal', last:iso(-95), next:iso(-12)},
@@ -545,7 +528,7 @@ let S = JSON.parse(localStorage.getItem('kalibrasi_html_db') || 'null') || defau
 normAllDates(S);
 normAllDates(defaultDB);
 
-/* ===== Automatic 2-Way Sync Engine ===== */
+/* ===== Sync Engine ===== */
 let isAutoSyncing = false;
 let autoPushTimer = null;
 
@@ -572,15 +555,11 @@ function updateSyncBadge(type, text) {
   }
 }
 
-// 1. Otomatis kirim ke Google Sheets setiap kali ada penambahan, pengeditan, atau penghapusan
 function autoPushToGoogleSheets() {
-  const scriptUrl = (localStorage.getItem('kalibrasi_script_url') || '').trim();
-  if (!scriptUrl) {
-    updateSyncBadge('idle', 'Hubungkan Google Sheets');
-    return;
-  }
+  const scriptUrl = ($('#scriptUrlInput')?.value || localStorage.getItem('kalibrasi_script_url') || '').trim();
+  if (!scriptUrl) return;
   clearTimeout(autoPushTimer);
-  updateSyncBadge('syncing', 'Menyimpan ke Sheets...');
+  updateSyncBadge('syncing', 'Menyimpan...');
   autoPushTimer = setTimeout(async () => {
     try {
       await fetch(scriptUrl, {
@@ -594,7 +573,7 @@ function autoPushToGoogleSheets() {
     } catch (e) {
       updateSyncBadge('err', 'Gagal kirim');
     }
-  }, 400);
+  }, 500);
 }
 
 const saveLocal = () => {
@@ -602,87 +581,6 @@ const saveLocal = () => {
   localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
   autoPushToGoogleSheets();
 };
-
-// 2. Otomatis tarik dari Google Sheets secara berkala di background tanpa klik tombol
-async function autoPullFromGoogleSheets(silent = true) {
-  const scriptUrl = (localStorage.getItem('kalibrasi_script_url') || '').trim();
-  const sheetId = (localStorage.getItem('kalibrasi_sheet_id') || '').trim();
-  if (!scriptUrl && !sheetId) {
-    updateSyncBadge('idle', 'Belum Terhubung');
-    return;
-  }
-
-  if (isAutoSyncing) return;
-  isAutoSyncing = true;
-  if (!silent) updateSyncBadge('syncing', 'Memeriksa perubahan...');
-
-  try {
-    if (scriptUrl) {
-      const res = await fetch(scriptUrl);
-      const json = await res.json();
-      if (json && json.status === 'success' && json.data) {
-        normAllDates(json.data);
-        const newAlat = json.data.alat || [];
-        const newJadwal = json.data.jadwal || [];
-        const newPeriksa = json.data.periksa || [];
-
-        // Bandingkan apakah ada perbedaan data
-        if (JSON.stringify(newAlat) !== JSON.stringify(S.alat) ||
-            JSON.stringify(newJadwal) !== JSON.stringify(S.jadwal) ||
-            JSON.stringify(newPeriksa) !== JSON.stringify(S.periksa)) {
-          S.alat = newAlat;
-          S.jadwal = newJadwal;
-          S.periksa = newPeriksa;
-          normAllDates(S);
-          localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
-          render();
-          if (!silent) toast('Data otomatis diperbarui dari Google Sheets!');
-        }
-        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        updateSyncBadge('ok', `Tersinkron (${timeStr})`);
-        isAutoSyncing = false;
-        return;
-      }
-    }
-
-    if (sheetId) {
-      const resAlat = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=Daftar_Alat`);
-      if (resAlat.ok) {
-        const textAlat = await resAlat.text();
-        const rows = parseCSV(textAlat);
-        if (rows.length > 1) {
-          const parsedAlat = [];
-          for (let i = 1; i < rows.length; i++) {
-            const r = rows[i];
-            if (r[0] && r[0].trim()) {
-              parsedAlat.push({
-                kode: r[0].trim().toUpperCase(),
-                nama: r[1] ? r[1].trim() : r[0].trim(),
-                kap: r[2] ? r[2].trim() : '30 kg',
-                user: r[3] ? r[3].trim() : 'Umum',
-                tempat: r[4] ? r[4].trim() : '',
-                last: normDate(r[5]),
-                next: normDate(r[6])
-              });
-            }
-          }
-          if (parsedAlat.length > 0 && JSON.stringify(parsedAlat) !== JSON.stringify(S.alat)) {
-            S.alat = parsedAlat;
-            localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
-            render();
-          }
-        }
-        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        updateSyncBadge('ok', `Tersinkron (${timeStr})`);
-      }
-    }
-  } catch (err) {
-    console.warn('Auto sync check error:', err);
-    if (!silent) updateSyncBadge('err', 'Gagal periksa');
-  } finally {
-    isAutoSyncing = false;
-  }
-}
 
 const dleft = d => {
   const n = normDate(d);
@@ -701,6 +599,7 @@ const sisa = d => {
 const alatOf = k => S.alat.find(a => a.kode.toLowerCase() === String(k).toLowerCase());
 const toast = t => {
   const e = $('#toast');
+  if (!e) return;
   e.textContent = t;
   e.classList.add('show');
   clearTimeout(toast.t);
@@ -716,7 +615,7 @@ function go(v) {
 }
 $('#nav').onclick = e => { const b = e.target.closest('button'); if (b) go(b.dataset.v); };
 
-/* ===== 6-MONTH CHART.JS VISUALIZATION ===== */
+/* ===== Chart.js ===== */
 let trendChartInstance = null;
 let currentChartMode = 'bar';
 
@@ -742,10 +641,7 @@ function renderVerificationTrendChart() {
   }
 
   let totTests = 0, totOk = 0, totBad = 0;
-  const labels = [];
-  const dataOk = [];
-  const dataBad = [];
-  const dataPassRate = [];
+  const labels = [], dataOk = [], dataBad = [], dataPassRate = [];
 
   m6.forEach(m => {
     const tests = S.periksa.filter(p => {
@@ -773,10 +669,7 @@ function renderVerificationTrendChart() {
   const canvas = document.getElementById('verificationTrendCanvas');
   if (!canvas || typeof Chart === 'undefined') return;
 
-  if (trendChartInstance) {
-    trendChartInstance.destroy();
-  }
-
+  if (trendChartInstance) trendChartInstance.destroy();
   const ctx = canvas.getContext('2d');
 
   if (currentChartMode === 'bar') {
@@ -785,35 +678,14 @@ function renderVerificationTrendChart() {
       data: {
         labels: labels,
         datasets: [
-          {
-            label: 'Memenuhi Toleransi (OK)',
-            data: dataOk,
-            backgroundColor: '#0d9488',
-            borderRadius: 6,
-            maxBarThickness: 36
-          },
-          {
-            label: 'Di Luar Toleransi (Tidak OK)',
-            data: dataBad,
-            backgroundColor: '#ef4444',
-            borderRadius: 6,
-            maxBarThickness: 36
-          }
+          { label: 'Memenuhi Toleransi (OK)', data: dataOk, backgroundColor: '#0d9488', borderRadius: 6, maxBarThickness: 36 },
+          { label: 'Di Luar Toleransi (Tidak OK)', data: dataBad, backgroundColor: '#ef4444', borderRadius: 6, maxBarThickness: 36 }
         ]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
+        responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'top', labels: { boxWidth: 12, font: { family: 'Plus Jakarta Sans', size: 12 } } },
-          tooltip: {
-            callbacks: {
-              afterBody: function(context) {
-                const idx = context[0].dataIndex;
-                return `Tingkat Kelaikan: ${dataPassRate[idx]}%`;
-              }
-            }
-          }
+          legend: { position: 'top', labels: { boxWidth: 12, font: { family: 'Plus Jakarta Sans', size: 12 } } }
         },
         scales: {
           y: { beginAtZero: true, ticks: { precision: 0, font: { family: 'JetBrains Mono', size: 11 } }, grid: { color: '#e2e8f0' } },
@@ -826,26 +698,15 @@ function renderVerificationTrendChart() {
       type: 'line',
       data: {
         labels: labels,
-        datasets: [
-          {
-            label: 'Persentase Kelaikan (%)',
-            data: dataPassRate,
-            borderColor: '#0d9488',
-            backgroundColor: 'rgba(13, 148, 136, 0.15)',
-            borderWidth: 3,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 5,
-            pointBackgroundColor: '#0d9488'
-          }
-        ]
+        datasets: [{
+          label: 'Persentase Kelaikan (%)', data: dataPassRate,
+          borderColor: '#0d9488', backgroundColor: 'rgba(13, 148, 136, 0.15)',
+          borderWidth: 3, fill: true, tension: 0.35, pointRadius: 5, pointBackgroundColor: '#0d9488'
+        }]
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'top', labels: { boxWidth: 12, font: { family: 'Plus Jakarta Sans', size: 12 } } }
-        },
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { family: 'Plus Jakarta Sans', size: 12 } } } },
         scales: {
           y: { min: 0, max: 100, ticks: { callback: v => v + '%', font: { family: 'JetBrains Mono', size: 11 } }, grid: { color: '#e2e8f0' } },
           x: { grid: { display: false }, ticks: { font: { family: 'Plus Jakarta Sans', size: 12, weight: 600 } } }
@@ -935,15 +796,9 @@ function tbAlat() {
       </td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
-          <button class="btn sm" onclick="labelQR('${a.kode}')" title="Cetak Stiker QR">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          </button>
-          <button class="btn sm" onclick="formAlat(alatOf('${a.kode}'))" title="Edit Data Alat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button class="btn sm del" onclick="hapusAlat('${a.kode}')" title="Hapus Alat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          </button>
+          <button class="btn sm" onclick="labelQR('${a.kode}')" title="Cetak Stiker QR">QR</button>
+          <button class="btn sm" onclick="formAlat(alatOf('${a.kode}'))" title="Edit Data">Edit</button>
+          <button class="btn sm del" onclick="hapusAlat('${a.kode}')" title="Hapus">Hapus</button>
         </div>
       </td>
     </tr>`;
@@ -1033,20 +888,17 @@ function detail(a) {
 }
 $('#d2Close').onclick = () => $('#dlg2').close();
 
-/* ===== Cetak Sertifikat Lembar Kerja Sesuai Format F-BTN-10 ===== */
+/* ===== Cetak Sertifikat ===== */
 function cetakSertifikat(pid) {
   const p = S.periksa.find(x => String(x.id) === String(pid));
   if (!p) return;
   const a = alatOf(p.kode) || {nama:'-', kap:'-', user:'-'};
   const certHtml = `
     <div style="font-family:'Arial',sans-serif;color:#000;background:#fff;padding:24px;border:2px solid #000;max-width:820px;margin:0 auto">
-      <!-- Header Table -->
       <table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-bottom:20px">
         <tr>
           <td style="width:22%;border-right:2px solid #000;text-align:center;padding:12px;vertical-align:middle">
-            <div style="display:inline-block;background:#000;color:#fff;padding:6px 14px;border-radius:10px;font-family:'Arial Black',sans-serif;font-size:22px;letter-spacing:1px;line-height:1">
-              upc
-            </div>
+            <div style="display:inline-block;background:#000;color:#fff;padding:6px 14px;border-radius:10px;font-family:'Arial Black',sans-serif;font-size:22px;letter-spacing:1px;line-height:1">upc</div>
             <div style="font-size:10px;font-weight:900;letter-spacing:3px;margin-top:4px;color:#000">PLASTIC</div>
           </td>
           <td style="width:53%;text-align:center;padding:12px;vertical-align:middle;border-right:2px solid #000">
@@ -1058,40 +910,16 @@ function cetakSertifikat(pid) {
           </td>
         </tr>
       </table>
-
-      <!-- DATA ALAT UKUR -->
       <div style="margin-bottom:18px">
         <div style="font-weight:800;font-size:12px;margin-bottom:8px">DATA ALAT UKUR :</div>
         <table style="width:100%;font-size:12px;line-height:2.2">
-          <tr>
-            <td style="width:170px">Jenis Alat Ukur</td>
-            <td style="width:15px">:</td>
-            <td style="border-bottom:1px solid #000;font-weight:700">TIMBANGAN DIGITAL</td>
-          </tr>
-          <tr>
-            <td>Merk /Type</td>
-            <td>:</td>
-            <td style="border-bottom:1px solid #000;font-weight:700">${esc(a.nama)}</td>
-          </tr>
-          <tr>
-            <td>No Seri</td>
-            <td>:</td>
-            <td style="border-bottom:1px solid #000;font-family:monospace;font-weight:700">${esc(p.kode)}</td>
-          </tr>
-          <tr>
-            <td>Kapasitas Alat</td>
-            <td>:</td>
-            <td style="border-bottom:1px solid #000;font-weight:700">${esc(a.kap)}</td>
-          </tr>
-          <tr>
-            <td>Ditempatkan di</td>
-            <td>:</td>
-            <td style="border-bottom:1px solid #000;font-weight:700">${esc(a.user).toUpperCase()}</td>
-          </tr>
+          <tr><td style="width:170px">Jenis Alat Ukur</td><td style="width:15px">:</td><td style="border-bottom:1px solid #000;font-weight:700">TIMBANGAN DIGITAL</td></tr>
+          <tr><td>Merk /Type</td><td>:</td><td style="border-bottom:1px solid #000;font-weight:700">${esc(a.nama)}</td></tr>
+          <tr><td>No Seri</td><td>:</td><td style="border-bottom:1px solid #000;font-family:monospace;font-weight:700">${esc(p.kode)}</td></tr>
+          <tr><td>Kapasitas Alat</td><td>:</td><td style="border-bottom:1px solid #000;font-weight:700">${esc(a.kap)}</td></tr>
+          <tr><td>Ditempatkan di</td><td>:</td><td style="border-bottom:1px solid #000;font-weight:700">${esc(a.user).toUpperCase()}</td></tr>
         </table>
       </div>
-
-      <!-- HASIL KALIBRASI / PENGECEKAN -->
       <div style="margin-bottom:24px">
         <div style="font-weight:800;font-size:12px;margin-bottom:8px">HASIL KALIBRASI :</div>
         <table style="width:100%;border-collapse:collapse;border:1.5px solid #000;font-size:12px;text-align:center">
@@ -1111,35 +939,21 @@ function cetakSertifikat(pid) {
               return `<tr>
                 <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 4px">${idx + 1}</td>
                 <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 6px">${fmt(p.tgl)}</td>
-                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px">Anak timbangan ${pt.beban} ${p.sat}</td>
-                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px;font-family:monospace;font-weight:700">${pt.baca} ${p.sat}</td>
-                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px">&plusmn;${+lim.toFixed(4)} ${p.sat}</td>
+                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px">Anak timbangan ${pt.beban}${p.sat}</td>
+                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px;font-family:monospace;font-weight:700">${pt.baca}${p.sat}</td>
+                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px">&plusmn;${+lim.toFixed(4)}${p.sat}</td>
                 <td style="border-top:1px solid #000;padding:10px 8px;font-weight:700;color:${pt.ok ? '#15803d' : '#b91c1c'}">${pt.ok ? 'MEMENUHI SYARAT' : 'DI LUAR TOLERANSI'}</td>
               </tr>`;
             }).join('')}
           </tbody>
         </table>
       </div>
-
-      <!-- Tanda Tangan Box Sesuai Format Form -->
       <table style="width:100%;border-collapse:collapse;border:1.5px solid #000;font-size:12px;margin-top:20px">
         <tr>
-          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top;height:85px">
-            <div>Dibuat Oleh :</div>
-            <div style="margin-top:40px;font-weight:700;text-decoration:underline">${esc(p.nama)}</div>
-          </td>
-          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top">
-            <div>Tanggal :</div>
-            <div style="margin-top:40px;font-weight:700">${fmt(p.tgl)}</div>
-          </td>
-          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top">
-            <div>Diserahkan Oleh :</div>
-            <div style="margin-top:40px;font-weight:700;text-decoration:underline">Supervisor QA</div>
-          </td>
-          <td style="width:25%;padding:10px 14px;vertical-align:top">
-            <div>Tanggal :</div>
-            <div style="margin-top:40px;font-weight:700">${fmt(p.tgl)}</div>
-          </td>
+          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top;height:85px"><div>Dibuat Oleh :</div><div style="margin-top:40px;font-weight:700;text-decoration:underline">${esc(p.nama)}</div></td>
+          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top"><div>Tanggal :</div><div style="margin-top:40px;font-weight:700">${fmt(p.tgl)}</div></td>
+          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top"><div>Diserahkan Oleh :</div><div style="margin-top:40px;font-weight:700;text-decoration:underline">Supervisor QA</div></td>
+          <td style="width:25%;padding:10px 14px;vertical-align:top"><div>Tanggal :</div><div style="margin-top:40px;font-weight:700">${fmt(p.tgl)}</div></td>
         </tr>
       </table>
     </div>
@@ -1181,837 +995,496 @@ function tbJadwal() {
   const th = $('#fTh'), bl = $('#fBl');
   const yrs = [...new Set([String(Y), ...S.jadwal.map(j => normDate(j.tgl).slice(0, 4)).filter(Boolean)])].sort();
   if (!th.options.length) {
-    th.innerHTML = '<option value="">Semua Tahun</option>' + yrs.map(y => `<option value="${y}">${y}</option>`).join('');
-    th.value = String(Y);
-    bl.innerHTML = '<option value="">Semua Bulan</option>' + BLN.map((m, i) => `<option value="${String(i + 1).padStart(2, '0')}">${m}</option>`).join('');
+    th.innerHTML = '<option value="">Semua Tahun</option>' + yrs.map(y => `<option value="${y}" ${y==Y?'selected':''}>${y}</option>`).join('');
+    bl.innerHTML = '<option value="">Semua Bulan</option>' + BLN.map((b, i) => `<option value="${String(i+1).padStart(2,'0')}">${b}</option>`).join('');
   }
-  const r = S.jadwal.filter(j => {
-    const jt = normDate(j.tgl);
-    return (!th.value || jt.slice(0, 4) === th.value) && (!bl.value || jt.slice(5, 7) === bl.value);
-  }).sort((a, b) => normDate(a.tgl).localeCompare(normDate(b.tgl)));
-  $('#tbJadwal').innerHTML = r.map(j => {
-    const jt = normDate(j.tgl);
-    const isOverdue = !j.selesai && jt < TD;
-    const a = alatOf(j.kode);
+  const sy = th.value, sm = bl.value;
+  const list = S.jadwal.filter(j => {
+    const d = normDate(j.tgl);
+    if (!d) return false;
+    return (!sy || d.slice(0,4) === sy) && (!sm || d.slice(5,7) === sm);
+  }).sort((a,b) => a.tgl.localeCompare(b.tgl));
+
+  $('#tbJadwal').innerHTML = list.map(j => {
+    const a = alatOf(j.kode) || {nama:'-'};
+    const passed = normDate(j.tgl) < TD && !j.selesai;
     return `<tr>
-      <td class="kode">${j.kode}</td>
-      <td><b>${esc(a?.nama || '-')}</b></td>
+      <td class="kode">${esc(j.kode)}</td>
+      <td><b>${esc(a.nama)}</b></td>
       <td>${j.jenis}</td>
-      <td>${fmt(jt)}</td>
-      <td><span class="tag ${j.selesai ? 'ok' : isOverdue ? 'bad' : 'warn'}">${j.selesai ? 'Selesai' : isOverdue ? 'Terlambat' : 'Terjadwal'}</span></td>
-      <td onclick="event.stopPropagation()">
-        <div style="display:flex;gap:4px">
-          ${!j.selesai ? `
-            <button class="btn sm pri" onclick="go('periksa');$('#pKode').value='${j.kode}';pKode();" title="Periksa Sekarang">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
-            </button>
-          ` : ''}
-          <button class="btn sm" onclick="formJadwal('${j.id}')" title="Edit Jadwal">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button class="btn sm del" onclick="hapusJadwal('${j.id}')" title="Hapus Jadwal">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          </button>
-        </div>
+      <td>${fmt(j.tgl)}</td>
+      <td><span class="tag ${j.selesai?'ok':passed?'bad':'warn'}">${j.selesai?'Selesai':passed?'Terlambat':'Agenda'}</span></td>
+      <td>
+        <button class="btn sm" onclick="toggleJadwal('${j.id}')">${j.selesai?'Batalkan':'Selesai'}</button>
+        <button class="btn sm del" onclick="hapusJadwal('${j.id}')">Hapus</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Tidak ada jadwal pada periode ini</td></tr>';
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">Tidak ada jadwal pada filter ini</td></tr>';
 }
-$('#fTh').onchange = $('#fBl').onchange = tbJadwal;
+$('#fTh').onchange = tbJadwal;
+$('#fBl').onchange = tbJadwal;
 $('#addJadwal').onclick = () => {
-  if (!S.alat.length) { toast('Tambahkan alat terlebih dahulu'); return; }
-  dialog('Tambah Jadwal Baru', `
-    <label>Pilih Alat<select id="jK">${S.alat.map(a => `<option value="${a.kode}">${a.kode} - ${esc(a.nama)}</option>`).join('')}</select></label>
-    <label>Jenis Kegiatan<select id="jJ"><option>Verifikasi</option><option>Kalibrasi</option></select></label>
-    <label>Tanggal Rencana<input id="jT" type="date" value="${iso(7)}"></label>
-  `, () => {
-    if (!$('#jT').value) { toast('Pilih tanggal'); return false; }
-    S.jadwal.push({ id: 'SCH-' + Date.now(), kode: $('#jK').value, jenis: $('#jJ').value, tgl: $('#jT').value, selesai: false });
-    saveLocal(); render(); toast('Jadwal ditambahkan');
-  }, 'Simpan Jadwal');
+  const f = (id, l, x, t) => `<label>${l}<input id="${id}" ${t?`type="${t}"`:''} value="${esc(x||'')}"></label>`;
+  dialog('Tambah Jadwal Inspeksi',
+    `<label>Pilih Alat<select id="jKode">${S.alat.map(a=>`<option value="${a.kode}">${a.kode} -${a.nama}</option>`).join('')}</select></label>` +
+    `<label>Jenis<select id="jJenis"><option>Verifikasi</option><option>Kalibrasi</option></select></label>` +
+    f('jTgl', 'Tanggal Rencana', iso(10), 'date'),
+    () => {
+      const x = { id: 'SCH-' + Date.now(), kode: $('#jKode').value, jenis: $('#jJenis').value, tgl: $('#jTgl').value, selesai: false };
+      if (!x.tgl) { toast('Tentukan tanggal rencana'); return false; }
+      S.jadwal.push(x); saveLocal(); render(); toast('Jadwal ditambahkan');
+    }, 'Simpan Jadwal'
+  );
 };
-
-function formJadwal(id) {
+function toggleJadwal(id) {
   const j = S.jadwal.find(x => String(x.id) === String(id));
-  if (!j) return;
-  dialog('Edit Jadwal', `
-    <label>Pilih Alat<select id="jK">${S.alat.map(a => `<option value="${a.kode}" ${a.kode === j.kode ? 'selected' : ''}>${a.kode} - ${esc(a.nama)}</option>`).join('')}</select></label>
-    <label>Jenis Kegiatan<select id="jJ"><option ${j.jenis === 'Verifikasi' ? 'selected' : ''}>Verifikasi</option><option ${j.jenis === 'Kalibrasi' ? 'selected' : ''}>Kalibrasi</option></select></label>
-    <label>Tanggal Rencana<input id="jT" type="date" value="${j.tgl}"></label>
-    <label><input type="checkbox" id="jS" ${j.selesai ? 'checked' : ''} style="width:auto"> Tandai Sudah Selesai</label>
-  `, () => {
-    if (!$('#jT').value) { toast('Pilih tanggal'); return false; }
-    j.kode = $('#jK').value;
-    j.jenis = $('#jJ').value;
-    j.tgl = $('#jT').value;
-    j.selesai = $('#jS').checked;
-    saveLocal(); render(); toast('Jadwal diperbarui');
-  }, 'Simpan Perubahan');
-}
-function selesaiJadwal(id) {
-  const j = S.jadwal.find(x => String(x.id) === String(id));
-  if (j) j.selesai = true;
-  saveLocal(); render(); toast('Jadwal ditandai selesai');
+  if (j) { j.selesai = !j.selesai; saveLocal(); render(); toast('Status jadwal diperbarui'); }
 }
 function hapusJadwal(id) {
-  S.jadwal = S.jadwal.filter(x => String(x.id) !== String(id));
-  saveLocal(); render(); toast('Jadwal dihapus');
-}
-
-/* ===== Pemeriksaan Workbench ===== */
-let cur = null, R = [];
-function cap(k) {
-  const m = String(k || '').trim().match(/^([\d.,]+)\s*(kg|gr|g)\b/i);
-  if (!m) return null;
-  const rawU = m[2].toLowerCase();
-  const u = rawU === 'gr' ? 'g' : rawU;
-  return { v: parseFloat(m[1].replace(',', '.')), u, displayU: rawU };
-}
-const uni = () => (cur && cap(cur.kap) ? cap(cur.kap).displayU : 'kg');
-
-function opts(c) {
-  if (!c || isNaN(c.v)) return [];
-  const { v, u } = c;
-
-  // 1. Gram scales
-  if (u === 'g') {
-    // 210 gr -> 100, 200 gr
-    if (v === 210) return [100, 200];
-    // 320 gr -> 100, 200, 300 gr
-    if (v === 320) return [100, 200, 300];
-    // General fallback for gram
-    const gList = [];
-    for (let x = 100; x <= v; x += 100) gList.push(x);
-    return gList.length ? gList : [100, 200];
+  if (confirm('Hapus jadwal ini?')) {
+    S.jadwal = S.jadwal.filter(x => String(x.id) !== String(id));
+    saveLocal(); render(); toast('Jadwal dihapus');
   }
+}
 
-  // 2. Kilogram scales
-  if (u === 'kg') {
-    // 6 kg -> 1, 2, 3, 5, 6 kg
-    if (v === 6) return [1, 2, 3, 5, 6];
-    // 30 kg -> 1, 2, 5, 10, 20, 30 kg
-    if (v === 30) return [1, 2, 5, 10, 20, 30];
-    // 100 sampai 1000 kg -> 10, 20, 30, sampai 100 kg
-    if (v >= 100 && v <= 1000) {
-      return [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-    }
-    // General fallbacks
-    if (v < 10) return [1, 2, 3, Math.floor(v)];
-    if (v <= 50) return [1, 2, 5, 10, 20, Math.floor(v)];
-    return [10, 20, 50, 100];
+/* ===== Pemeriksaan & Pengujian ===== */
+let curP = null;
+function initPeriksa() {
+  const kl = $('#kodeList');
+  if (kl) kl.innerHTML = S.alat.map(a => `<option value="${a.kode}">${a.nama} (${a.kap})</option>`).join('');
+  const pK = $('#pKode');
+  if (pK && !pK.oninput) {
+    pK.oninput = pKode;
+    $('#pSave').onclick = savePeriksa;
+    $('#addManual').onclick = addManualRow;
+    $('#btnScan').onclick = openScanner;
+    $('#qrX').onclick = () => $('#dlgScan').close();
   }
-  return [];
-}
-
-function drawP() {
-  const u = uni(), o = cur ? opts(cap(cur.kap)) : [];
-  $('#pChips').innerHTML = o.map(x => `<button type="button" class="${R.some(r => !r.man && r.b === x) ? 'on' : ''}" onclick="toggleChip(${x})">${x} ${u}</button>`).join('') || '<span class="sub">Gunakan beban manual.</span>';
-  $('#pRows').innerHTML = R.map((r, i) => `
-    <tr data-i="${i}">
-      <td>${r.man ? `<input class="mb" type="number" step="any" min="0" placeholder="Beban" value="${esc(r.b)}"> ${u}` : `<b>${r.b} ${u}</b>`}</td>
-      <td><input class="rd" type="number" step="any" min="0" placeholder="Hasil baca" value="${esc(r.r)}"> ${u}</td>
-      <td class="sl"></td>
-      <td class="bt"></td>
-      <td class="hs"></td>
-      <td><button class="btn sm del" onclick="R.splice(${i},1);drawP();hitung();">&times;</button></td>
-    </tr>
-  `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:14px">Pilih beban rekomendasi di atas atau klik Tambah Beban Manual</td></tr>';
-}
-
-function toggleChip(b) {
-  const exists = R.some(r => !r.man && r.b === b);
-  if (exists) R = R.filter(r => r.man || r.b !== b);
-  else R.push({ b, r: '', man: false });
-  drawP(); hitung();
 }
 
 function pKode() {
-  const n = alatOf($('#pKode').value.trim().toUpperCase());
-  const i = $('#pInfo');
-  i.classList.toggle('show', !!$('#pKode').value.trim());
-  i.innerHTML = n ? `<b>${esc(n.kode)} - ${esc(n.nama)}</b><br><span style="color:var(--muted)">Kapasitas: ${esc(n.kap)} &middot; Pengguna: ${esc(n.user)} &middot; Lokasi: ${esc(n.tempat || '-')}</span>` : 'Kode tidak terdaftar di database alat.';
-  if (n !== cur) {
-    cur = n;
-    // Otomatis muncul daftar beban uji lengkap sesuai kapasitas
-    const autoLoads = cur ? opts(cap(cur.kap)) : [];
-    R = autoLoads.map(b => ({ b, r: '', man: false }));
-    drawP();
+  const code = ($('#pKode').value || '').trim().toUpperCase();
+  const a = alatOf(code);
+  const info = $('#pInfo'), form = $('#pForm'), body = $('#pBody'), act = $('#pAct');
+  if (!a) {
+    info.classList.remove('show'); form.style.display = 'none'; body.style.display = 'none'; act.style.display = 'none';
+    return;
   }
-  $('#pForm').style.display = $('#pBody').style.display = $('#pAct').style.display = cur ? 'grid' : 'none';
-  if (cur) {
-    $('#pBody').style.display = $('#pAct').style.display = 'block';
-    if ($('#pTgl') && !$('#pTgl').value) $('#pTgl').value = TD;
+  curP = a;
+  info.innerHTML = `<b>${esc(a.nama)}</b> &middot; Kapasitas: <b>${esc(a.kap)}</b> &middot; Pengguna: ${esc(a.user)} &middot; Lokasi: ${esc(a.tempat||'-')}`;
+  info.classList.add('show');
+  form.style.display = 'grid';
+  body.style.display = 'block';
+  act.style.display = 'flex';
+  if (!$('#pTgl').value) $('#pTgl').value = TD;
+
+  const unit = a.kap.toLowerCase().includes('g') && !a.kap.toLowerCase().includes('kg') ? 'g' : 'kg';
+  const rec = unit === 'g' ? [10, 50, 100, 200] : [10, 50, 100, 250, 500];
+  $('#pChips').innerHTML = rec.map(v => `<button type="button" onclick="addPt(${v}, '${unit}')">+ ${v} ${unit}</button>`).join('');
+  
+  if (!curP.pts || !curP.pts.length) {
+    curP.pts = [
+      {beban: rec[1] || 10, baca: rec[1] || 10, sat: unit},
+      {beban: rec[2] || 50, baca: rec[2] || 50, sat: unit}
+    ];
   }
-  hitung();
+  renderPts();
 }
 
-function hitung() {
-  const r = $('#pRes'), t = parseFloat($('#pTol').value), u = uni(), pts = [];
-  document.querySelectorAll('#pRows tr[data-i]').forEach(tr => {
-    const x = R[tr.dataset.i], b = parseFloat(x.b), c = parseFloat(x.r);
-    const sl = tr.querySelector('.sl'), bt = tr.querySelector('.bt'), hs = tr.querySelector('.hs');
-    if (isNaN(b) || isNaN(c) || isNaN(t) || b <= 0) {
-      if (sl) sl.textContent = ''; if (bt) bt.textContent = ''; if (hs) hs.innerHTML = '';
-      return;
-    }
-    const d = c - b, lim = b * t / 100, ok = Math.abs(d) <= lim + 1e-9;
-    sl.textContent = `${d > 0 ? '+' : ''}${+d.toFixed(4)} ${u}`;
-    bt.textContent = `±${+lim.toFixed(4)} ${u}`;
-    hs.innerHTML = `<span class="tag ${ok ? 'ok' : 'bad'}">${ok ? 'Memenuhi' : 'Di Luar'}</span>`;
-    pts.push({ beban: b, baca: c, ok });
-  });
-
-  if (!cur || !pts.length) { r.style.display = 'none'; return null; }
-  const ok = pts.every(p => p.ok), bad = pts.filter(p => !p.ok).length;
-  r.style.display = 'block';
-  r.style.background = ok ? '#dcfce7' : '#fee2e2';
-  r.style.color = ok ? '#15803d' : '#b91c1c';
-  r.textContent = ok ? `Semua ${pts.length} titik uji MEMENUHI toleransi ±${t}%` : `${bad} dari ${pts.length} titik uji DI LUAR batas toleransi ±${t}%`;
-  return { pts, ok, inc: pts.length < R.length, t };
+function renderPts() {
+  if (!curP || !curP.pts) return;
+  const tol = parseFloat($('#pTol').value) || 0.1;
+  const unit = curP.kap.toLowerCase().includes('g') && !curP.kap.toLowerCase().includes('kg') ? 'g' : 'kg';
+  
+  $('#pRows').innerHTML = curP.pts.map((pt, i) => {
+    const diff = +(pt.baca - pt.beban).toFixed(4);
+    const limit = +(pt.beban * tol / 100).toFixed(4);
+    const ok = Math.abs(diff) <= limit;
+    pt.ok = ok; pt.sat = unit;
+    return `<tr>
+      <td>${pt.beban} ${unit}</td>
+      <td><input type="number" step="any" value="${pt.baca}" oninput="curP.pts[${i}].baca=parseFloat(this.value)||0; calcRes()"></td>
+      <td style="font-family:monospace">${diff > 0 ? '+' + diff : diff} ${unit}</td>
+      <td>&plusmn;${limit} ${unit}</td>
+      <td><span class="tag ${ok ? 'ok' : 'bad'}">${ok ? 'PASS' : 'FAIL'}</span></td>
+      <td><button class="btn sm del" onclick="curP.pts.splice(${i},1); renderPts()">×</button></td>
+    </tr>`;
+  }).join('');
+  calcRes();
 }
 
-$('#pKode').addEventListener('input', pKode);
-$('#pTol').addEventListener('input', hitung);
-$('#addManual').onclick = () => { R.push({ b: '', r: '', man: true }); drawP(); hitung(); };
-$('#pRows').oninput = e => {
-  const tr = e.target.closest('tr[data-i]');
-  if (!tr) return;
-  const r = R[tr.dataset.i];
-  if (e.target.classList.contains('mb')) r.b = e.target.value; else r.r = e.target.value;
-  hitung();
-};
+function addPt(b, sat) {
+  if (!curP) return;
+  if (!curP.pts) curP.pts = [];
+  curP.pts.push({ beban: b, baca: b, sat });
+  renderPts();
+}
 
-$('#pSave').onclick = () => {
-  const h = hitung(), nm = $('#pNama').value.trim();
-  if (!h || !h.pts.length) { toast('Lengkapi beban uji dan hasil pembacaan'); return; }
-  if (h.inc) { toast('Lengkapi seluruh pembacaan beban'); return; }
-  if (!nm) { toast('Isi nama pemeriksa'); return; }
-  const jenis = $('#pJenis').value;
-  const tglPelaksana = ($('#pTgl') && $('#pTgl').value) || TD;
+function addManualRow() {
+  if (!curP) return;
+  if (!curP.pts) curP.pts = [];
+  const unit = curP.kap.toLowerCase().includes('g') && !curP.kap.toLowerCase().includes('kg') ? 'g' : 'kg';
+  curP.pts.push({ beban: 100, baca: 100, sat: unit });
+  renderPts();
+}
 
-  const newId = 'CHK-' + Date.now();
-  S.periksa.unshift({ id: newId, tgl: tglPelaksana, kode: cur.kode, jenis, sat: uni(), pts: h.pts, tol: h.t, ok: h.ok, nama: nm });
+function calcRes() {
+  if (!curP || !curP.pts || !curP.pts.length) return;
+  const allOk = curP.pts.every(p => p.ok);
+  const res = $('#pRes');
+  res.style.display = 'block';
+  res.className = `result ${allOk ? 'ok' : 'bad'}`;
+  res.style.background = allOk ? '#dcfce7' : '#fee2e2';
+  res.style.color = allOk ? '#15803d' : '#b91c1c';
+  res.textContent = allOk ? 'KESIMPULAN: Timbangan MEMENUHI toleransi spesifikasi dan laik digunakan.' : 'KESIMPULAN: Timbangan DI LUAR batas toleransi. Perlu kalibrasi/penyetelan ulang.';
+}
 
-  // Update schedule & next year date
-  cur.last = tglPelaksana;
-  const openJ = S.jadwal.find(j => j.kode === cur.kode && !j.selesai);
-  if (openJ) openJ.selesai = true;
+function savePeriksa() {
+  if (!curP || !curP.pts || !curP.pts.length) { toast('Masukkan minimal 1 titik uji beban'); return; }
+  const allOk = curP.pts.every(p => p.ok);
+  const record = {
+    id: 'CHK-' + Date.now(),
+    tgl: $('#pTgl').value || TD,
+    kode: curP.kode,
+    jenis: $('#pJenis').value,
+    sat: curP.pts[0].sat || 'kg',
+    pts: JSON.parse(JSON.stringify(curP.pts)),
+    tol: parseFloat($('#pTol').value) || 0.1,
+    ok: allOk,
+    nama: $('#pNama').value || 'Teknisi'
+  };
 
-  const nextD = new Date(tglPelaksana + 'T00:00:00');
-  nextD.setFullYear(nextD.getFullYear() + 1);
-  const nextIso = nextD.toISOString().slice(0, 10);
-  cur.next = nextIso;
-  S.jadwal.push({ id: 'SCH-' + Date.now(), kode: cur.kode, jenis, tgl: nextIso, selesai: false });
-
-  saveLocal(); render();
-  toast('Hasil pemeriksaan tersimpan & jadwal berikutnya otomatis diperbarui!');
-  cetakSertifikat(newId);
-
-  // Reset
-  R = []; $('#pKode').value = ''; $('#pInfo').classList.remove('show');
-  if ($('#pTgl')) $('#pTgl').value = TD;
-  $('#pForm').style.display = $('#pBody').style.display = $('#pAct').style.display = $('#pRes').style.display = 'none';
-  cur = null;
-};
+  S.periksa.push(record);
+  const a = alatOf(curP.kode);
+  if (a) {
+    a.last = record.tgl;
+    const nextDt = new Date(record.tgl);
+    nextDt.setMonth(nextDt.getMonth() + 6);
+    a.next = nextDt.toISOString().slice(0, 10);
+  }
+  saveLocal();
+  render();
+  go('periksa');
+  toast('Hasil pemeriksaan berhasil disimpan!');
+  $('#pKode').value = '';
+  $('#pInfo').classList.remove('show');
+  $('#pForm').style.display = 'none';
+  $('#pBody').style.display = 'none';
+  $('#pAct').style.display = 'none';
+  $('#pRes').style.display = 'none';
+}
 
 function tbPeriksa() {
-  $('#kodeList').innerHTML = S.alat.map(a => `<option value="${a.kode}">${esc(a.nama)}</option>`).join('');
-  $('#tbPeriksa').innerHTML = S.periksa.map(p => {
-    const a = alatOf(p.kode) || { nama: '-', kap: '-', user: '-' };
+  const tb = $('#tbPeriksa');
+  if (!tb) return;
+  tb.innerHTML = S.periksa.slice().reverse().map(p => {
+    const a = alatOf(p.kode) || {nama:'-', kap:'-', user:'-'};
     return `<tr>
       <td>${fmt(p.tgl)}</td>
       <td><b>${esc(a.nama)}</b></td>
       <td class="kode">${esc(p.kode)}</td>
       <td>${esc(a.kap)}</td>
       <td>${esc(a.user)}</td>
-      <td>${esc(p.jenis)}</td>
-      <td>${p.pts.map(x => `${x.beban}&rarr;${x.baca}${p.sat}`).join(', ')}</td>
-      <td><span class="tag ${p.ok ? 'ok' : 'bad'}">${p.ok ? 'Memenuhi' : 'Di Luar'}</span></td>
-      <td><span class="tag ${p.ok ? 'ok' : 'bad'}" style="font-weight:800;letter-spacing:0.5px">${p.ok ? 'PASS' : 'FAIL'}</span></td>
-      <td onclick="event.stopPropagation()">
-        <div style="display:flex;gap:4px">
-          <button class="btn sm pri" onclick="cetakSertifikat('${p.id}')" title="Hasil (Dokumen PDF / Cetak)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          </button>
-          <button class="btn sm" onclick="formEditPeriksa('${p.id}')" title="Edit Riwayat Pemeriksaan">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button class="btn sm del" onclick="hapusPeriksa('${p.id}')" title="Hapus Riwayat">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          </button>
-        </div>
+      <td>${p.jenis}</td>
+      <td style="font-size:12px">${p.pts.map(x => `${x.beban}&rarr;${x.baca}${p.sat||'kg'}`).join(', ')}</td>
+      <td><span class="tag ${p.ok ? 'ok' : 'bad'}">${p.ok ? 'PASS' : 'FAIL'}</span></td>
+      <td>${esc(p.nama)}</td>
+      <td>
+        <button class="btn sm" onclick="cetakSertifikat('${p.id}')">Sertifikat</button>
+        <button class="btn sm del" onclick="hapusPeriksa('${p.id}')">Hapus</button>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Belum ada riwayat pemeriksaan</td></tr>';
-}
-
-function formEditPeriksa(pid) {
-  const p = S.periksa.find(x => String(x.id) === String(pid));
-  if (!p) return;
-  dialog(`Edit Data Pemeriksaan (${p.kode})`, `
-    <label>Tanggal Pelaksanaan<input id="edTgl" type="date" value="${p.tgl}"></label>
-    <label>Jenis Kegiatan<select id="edJenis"><option ${p.jenis === 'Verifikasi' ? 'selected' : ''}>Verifikasi</option><option ${p.jenis === 'Kalibrasi' ? 'selected' : ''}>Kalibrasi</option></select></label>
-    <label>Nama Pemeriksa / Teknisi<input id="edNama" value="${esc(p.nama)}"></label>
-    <label>Toleransi (%)<input id="edTol" type="number" step="any" value="${p.tol}"></label>
-    <label>Hasil Kelaikan<select id="edOk"><option value="true" ${p.ok ? 'selected' : ''}>MEMENUHI (PASS)</option><option value="false" ${!p.ok ? 'selected' : ''}>DI LUAR TOLERANSI (FAIL)</option></select></label>
-  `, () => {
-    p.tgl = $('#edTgl').value || p.tgl;
-    p.jenis = $('#edJenis').value;
-    p.nama = $('#edNama').value.trim() || p.nama;
-    p.tol = parseFloat($('#edTol').value) || p.tol;
-    p.ok = $('#edOk').value === 'true';
-    saveLocal(); render(); toast('Data pemeriksaan berhasil diperbarui');
-  }, 'Simpan Perubahan');
+  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">Belum ada riwayat pemeriksaan</td></tr>';
 }
 
 function hapusPeriksa(id) {
-  if (confirm('Hapus riwayat pemeriksaan ini?')) {
-    S.periksa = S.periksa.filter(p => String(p.id) !== String(id));
+  if (confirm('Hapus data riwayat pemeriksaan ini?')) {
+    S.periksa = S.periksa.filter(x => String(x.id) !== String(id));
     saveLocal(); render(); toast('Riwayat dihapus');
   }
 }
 
-/* ===== Camera QR Scanner ===== */
-let stream = null, scanOn = false;
-function stopScan() {
-  scanOn = false;
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  stream = null;
-  if ($('#dlgScan').open) $('#dlgScan').close();
+/* ===== QR Scanner via jsQR ===== */
+let scanStream = null;
+function openScanner() {
+  const dlg = $('#dlgScan');
+  const video = $('#qrV');
+  const msg = $('#qrMsg');
+  dlg.showModal();
+  msg.textContent = 'Mengarahkan kamera ke QR Code stiker timbangan...';
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      scanStream = stream;
+      video.srcObject = stream;
+      video.play();
+      requestAnimationFrame(tickScan);
+    })
+    .catch(err => {
+      msg.textContent = 'Gagal mengakses kamera: ' + err.message;
+    });
 }
 
-async function scan() {
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-  } catch (e) {
-    toast('Kamera tidak dapat diakses. Ketik kode alat secara manual.');
+function tickScan() {
+  const video = $('#qrV');
+  if (!video || video.readyState !== video.HAVE_ENOUGH_DATA) {
+    if (scanStream) requestAnimationFrame(tickScan);
     return;
   }
-  const v = $('#qrV');
-  v.srcObject = stream;
-  $('#qrMsg').textContent = 'Arahkan kamera ke stiker QR timbangan.';
-  $('#dlgScan').showModal();
-  await v.play().catch(() => {});
-  scanOn = true;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const code = jsQR(imgData.data, imgData.width, imgData.height);
 
-  const cv = document.createElement('canvas');
-  const cx = cv.getContext('2d', { willReadFrequently: true });
-
-  const loop = async () => {
-    if (!scanOn) return;
-    let txt = '';
-    try {
-      if (v.videoWidth) {
-        cv.width = v.videoWidth; cv.height = v.videoHeight;
-        cx.drawImage(v, 0, 0, cv.width, cv.height);
-        const im = cx.getImageData(0, 0, cv.width, cv.height);
-        const q = jsQR(im.data, im.width, im.height);
-        if (q) txt = q.data;
-      }
-    } catch (e) {}
-
-    const a = txt && alatOf(txt.trim());
-    if (a) {
-      stopScan();
-      $('#pKode').value = a.kode;
+  if (code) {
+    const val = code.data.trim().toUpperCase();
+    if (alatOf(val)) {
+      $('#dlgScan').close();
+      if (scanStream) scanStream.getTracks().forEach(t => t.stop());
+      go('periksa');
+      $('#pKode').value = val;
       pKode();
-      toast('QR Terbaca: ' + a.kode);
+      toast(`Timbangan ${val} terdeteksi!`);
       return;
+    } else {
+      $('#qrMsg').textContent = `QR terbaca "${val}", tetapi kode alat tidak terdaftar di sistem.`;
     }
-    setTimeout(loop, 250);
+  }
+  if (scanStream) requestAnimationFrame(tickScan);
+}
+
+$('#qrX').onclick = () => {
+  const dlg = $('#dlgScan');
+  dlg.close();
+  if (scanStream) scanStream.getTracks().forEach(t => t.stop());
+};
+
+/* ===== Generic Dialog Helper ===== */
+function dialog(title, html, onOk, okText = 'Simpan') {
+  $('#dTitle').textContent = title;
+  $('#dBody').innerHTML = html;
+  const dlg = $('#dlg');
+  dlg.showModal();
+  $('#dCancel').onclick = () => dlg.close();
+  $('#dForm').onsubmit = e => {
+    e.preventDefault();
+    if (onOk() !== false) dlg.close();
   };
-  loop();
-}
-$('#btnScan').onclick = scan;
-$('#qrX').onclick = stopScan;
-$('#dlgScan').addEventListener('close', stopScan);
-
-/* ===== Google Sheets Integration (Kerangka Siap Pakai 2-Arah) ===== */
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/);
-  return lines.map(line => {
-    const row = [];
-    let curVal = '';
-    let insideQuote = false;
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (insideQuote && line[i + 1] === '"') {
-          curVal += '"';
-          i++;
-        } else {
-          insideQuote = !insideQuote;
-        }
-      } else if (c === ',' && !insideQuote) {
-        row.push(curVal.trim());
-        curVal = '';
-      } else {
-        curVal += c;
-      }
-    }
-    row.push(curVal.trim());
-    return row.map(v => v.replace(/^"|"$/g, '').trim());
-  });
+  $('#dOk').textContent = okText;
 }
 
-function getSheetId() {
-  const raw = ($('#sheetInput').value || localStorage.getItem('kalibrasi_sheet_id') || '').trim();
-  const m = raw.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  return m ? m[1] : raw;
-}
-
+/* ===== Google Sheets Integration & Kerangka Downloader ===== */
 $('#btnSheets').onclick = () => {
+  $('#scriptUrlInput').value = localStorage.getItem('kalibrasi_script_url') || 'https://script.google.com/macros/s/AKfycbysVEke0Z4MyfPIT_tsb5UVRah7s9gilAHfiHOVpWhBxw3BbNlTcZtep7-ITiHIMAYKAQ/exec';
   $('#sheetInput').value = localStorage.getItem('kalibrasi_sheet_id') || '';
-  if ($('#scriptUrlInput')) $('#scriptUrlInput').value = localStorage.getItem('kalibrasi_script_url') || '';
   $('#dlgSheets').showModal();
 };
 
-// 1. Download File Script Code.gs
-if ($('#btnDownloadCodeGS')) {
-  $('#btnDownloadCodeGS').onclick = () => {
-    fetch('/google-apps-script.js')
-      .then(res => res.text())
-      .then(code => {
-        const blob = new Blob([code], { type: 'text/javascript;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'Code.gs';
-        a.click();
-        toast('File Code.gs berhasil diunduh! Siap dipasang di Apps Script Google Sheets.');
-      })
-      .catch(() => toast('Gagal mengunduh file script'));
-  };
-}
-
-// 2. Download File Panduan HTML
-if ($('#btnDownloadTemplateHTML')) {
-  $('#btnDownloadTemplateHTML').onclick = () => {
-    fetch('/google-sheets-template.html')
-      .then(res => res.text())
-      .then(html => {
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'Panduan_Integrasi_Google_Sheets.html';
-        a.click();
-        toast('Panduan HTML berhasil diunduh!');
-      })
-      .catch(() => toast('Gagal mengunduh file panduan'));
-  };
-}
-
-// 3. Salin Kode Script ke Clipboard
-if ($('#btnSalinScriptCode')) {
-  $('#btnSalinScriptCode').onclick = () => {
-    fetch('/google-apps-script.js')
-      .then(res => res.text())
-      .then(code => {
-        navigator.clipboard.writeText(code).then(() => {
-          toast('Seluruh kode Google Apps Script (Code.gs) berhasil disalin ke Clipboard!');
-        });
-      })
-      .catch(() => toast('Gagal menyalin kode'));
-  };
-}
-
 $('#btnConnectSheet').onclick = () => {
-  const id = getSheetId();
-  const scriptUrl = ($('#scriptUrlInput') && $('#scriptUrlInput').value.trim()) || '';
-  if (id) localStorage.setItem('kalibrasi_sheet_id', id);
-  if (scriptUrl) localStorage.setItem('kalibrasi_script_url', scriptUrl);
-  toast('Konfigurasi Google Sheets berhasil disimpan!');
+  const url = $('#scriptUrlInput').value.trim();
+  const sh = $('#sheetInput').value.trim();
+  localStorage.setItem('kalibrasi_script_url', url);
+  localStorage.setItem('kalibrasi_sheet_id', sh);
+  $('#dlgSheets').close();
+  toast('Pengaturan Google Sheets tersimpan!');
+  autoPushToGoogleSheets();
 };
 
-$('#btnExportToSheet').onclick = () => {
-  const id = getSheetId();
-  if (!id) { toast('Masukkan ID atau URL Google Sheets terlebih dahulu'); return; }
-  window.open(`https://docs.google.com/spreadsheets/d/${id}`, '_blank');
+$('#btnPushToScript').onclick = () => {
+  autoPushToGoogleSheets();
+  toast('Data berhasil dikirim ke Google Sheets!');
 };
 
 $('#btnPullFromSheet').onclick = async () => {
-  const scriptUrl = ($('#scriptUrlInput') && $('#scriptUrlInput').value.trim()) || localStorage.getItem('kalibrasi_script_url') || '';
-  const id = getSheetId();
-
-  // Jika URL Apps Script terpasang, tarik langsung JSON 2-arah
-  if (scriptUrl) {
-    toast('Menghubungkan ke Google Apps Script Web App...');
-    try {
-      const res = await fetch(scriptUrl);
-      const json = await res.json();
-      if (json && json.status === 'success' && json.data) {
-        if (Array.isArray(json.data.alat) && json.data.alat.length > 0) S.alat = json.data.alat;
-        if (Array.isArray(json.data.jadwal)) S.jadwal = json.data.jadwal;
-        if (Array.isArray(json.data.periksa)) S.periksa = json.data.periksa;
-        saveLocal(); render();
-        toast(`Berhasil sinkron 2-arah dari Google Sheets! (${S.alat.length} alat, ${S.jadwal.length} jadwal, ${S.periksa.length} riwayat)`);
-        $('#dlgSheets').close();
-        return;
-      }
-    } catch (err) {
-      console.warn('Apps Script direct pull failed, trying CSV fallback', err);
-    }
-  }
-
-  if (!id) { toast('Masukkan URL Apps Script atau ID Google Sheets'); return; }
-  localStorage.setItem('kalibrasi_sheet_id', id);
-
-  toast('Menghubungkan & menarik data dari Google Sheets...');
-
+  const url = $('#scriptUrlInput').value.trim();
+  if (!url) { toast('Masukkan URL Web App Apps Script'); return; }
+  toast('Menarik data dari Google Sheets...');
   try {
-    let alatCount = 0, jadwalCount = 0, periksaCount = 0;
-
-    // 1. Tarik Tab Daftar_Alat
-    try {
-      const resAlat = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Daftar_Alat`);
-      if (resAlat.ok) {
-        const textAlat = await resAlat.text();
-        const rows = parseCSV(textAlat);
-        if (rows.length > 1) {
-          const parsedAlat = [];
-          for (let i = 1; i < rows.length; i++) {
-            const r = rows[i];
-            if (r[0] && r[0].trim()) {
-              parsedAlat.push({
-                kode: r[0].trim().toUpperCase(),
-                nama: r[1] ? r[1].trim() : r[0].trim(),
-                kap: r[2] ? r[2].trim() : '30 kg',
-                user: r[3] ? r[3].trim() : 'Umum',
-                tempat: r[4] ? r[4].trim() : '',
-                last: r[5] ? r[5].trim() : '',
-                next: r[6] ? r[6].trim() : ''
-              });
-            }
-          }
-          if (parsedAlat.length > 0) {
-            S.alat = parsedAlat;
-            alatCount = parsedAlat.length;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Gagal membaca tab Daftar_Alat', e);
-    }
-
-    // 2. Tarik Tab Jadwal
-    try {
-      const resJadwal = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Jadwal`);
-      if (resJadwal.ok) {
-        const textJadwal = await resJadwal.text();
-        const rows = parseCSV(textJadwal);
-        if (rows.length > 1) {
-          const parsedJadwal = [];
-          for (let i = 1; i < rows.length; i++) {
-            const r = rows[i];
-            if (r[1] && r[1].trim()) {
-              parsedJadwal.push({
-                id: r[0] ? r[0].trim() : 'SCH-' + (Date.now() + i),
-                kode: r[1].trim().toUpperCase(),
-                jenis: (r[2] || '').toLowerCase().includes('kalibrasi') ? 'Kalibrasi' : 'Verifikasi',
-                tgl: r[3] ? r[3].trim() : iso(0),
-                selesai: String(r[4] || '').toUpperCase() === 'TRUE' || String(r[4] || '').toLowerCase() === 'selesai'
-              });
-            }
-          }
-          if (parsedJadwal.length > 0) {
-            S.jadwal = parsedJadwal;
-            jadwalCount = parsedJadwal.length;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Gagal membaca tab Jadwal', e);
-    }
-
-    // 3. Tarik Tab Riwayat_Pemeriksaan
-    try {
-      const resPeriksa = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Riwayat_Pemeriksaan`);
-      if (resPeriksa.ok) {
-        const textPeriksa = await resPeriksa.text();
-        const rows = parseCSV(textPeriksa);
-        if (rows.length > 1) {
-          const parsedPeriksa = [];
-          for (let i = 1; i < rows.length; i++) {
-            const r = rows[i];
-            if (r[2] && r[2].trim()) {
-              let pts = [];
-              try {
-                if (r[8] && (r[8].startsWith('[') || r[8].startsWith('{'))) {
-                  pts = JSON.parse(r[8]);
-                }
-              } catch (e) {}
-              if (!Array.isArray(pts) || !pts.length) {
-                pts = [{ beban: 10, baca: 10, ok: true }];
-              }
-              const isPass = String(r[6] || '').toUpperCase().includes('MEMENUHI') || String(r[6] || '').toUpperCase() === 'PASS' || String(r[6] || '').toUpperCase() === 'TRUE';
-              parsedPeriksa.push({
-                id: r[0] ? r[0].trim() : 'CHK-' + (Date.now() + i),
-                tgl: r[1] ? r[1].trim() : iso(0),
-                kode: r[2].trim().toUpperCase(),
-                jenis: (r[3] || '').toLowerCase().includes('kalibrasi') ? 'Kalibrasi' : 'Verifikasi',
-                sat: r[4] ? r[4].trim() : 'kg',
-                tol: parseFloat(r[5]) || 0.1,
-                ok: isPass,
-                nama: r[7] ? r[7].trim() : 'Teknisi QA',
-                pts
-              });
-            }
-          }
-          if (parsedPeriksa.length > 0) {
-            S.periksa = parsedPeriksa;
-            periksaCount = parsedPeriksa.length;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Gagal membaca tab Riwayat_Pemeriksaan', e);
-    }
-
-    if (alatCount > 0 || jadwalCount > 0 || periksaCount > 0) {
-      saveLocal();
+    const res = await fetch(url);
+    const json = await res.json();
+    if (json && json.status === 'success' && json.data) {
+      S = json.data;
+      normAllDates(S);
+      localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
       render();
-      toast(`Berhasil sinkron dari Google Sheets! (${alatCount} alat, ${jadwalCount} jadwal, ${periksaCount} riwayat)`);
+      toast('Data berhasil ditarik dari Google Sheets!');
       $('#dlgSheets').close();
     } else {
-      toast('Spreadsheet terbaca namun belum ada baris data atau format tab belum sesuai (Daftar_Alat, Jadwal, Riwayat_Pemeriksaan)');
+      toast('Format data Apps Script tidak valid');
     }
-  } catch (err) {
-    console.error(err);
-    toast('Gagal mengakses Google Sheets. Pastikan link dapat diakses publik/siapa saja dengan link.');
+  } catch (e) {
+    toast('Gagal terhubung ke Google Sheets: ' + e.message);
   }
 };
 
-if ($('#btnPushToScript')) {
-  $('#btnPushToScript').onclick = async () => {
-    const url = ($('#scriptUrlInput').value || '').trim();
-    if (!url) { toast('Masukkan URL Web App Google Apps Script'); return; }
-    localStorage.setItem('kalibrasi_script_url', url);
-    toast('Mengirim seluruh data web ke Google Sheets...');
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(S),
-        mode: 'no-cors'
-      });
-      toast('Pembaruan data berhasil dikirim ke Google Sheets!');
-    } catch (e) {
-      toast('Gagal mengirim ke Google Apps Script');
-    }
-  };
-}
-
-/* ===== Backup & Import ===== */
-if ($('#btnBackup')) $('#btnBackup').onclick = () => { $('#dlgBackup').showModal(); };
-
-$('#btnExportJSON').onclick = () => {
-  const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `backup_kalibrasi_${TD}.json`;
-  a.click();
-  toast('File cadangan JSON berhasil diunduh');
+$('#btnExportToSheet').onclick = () => {
+  const sh = $('#sheetInput').value.trim();
+  if (sh) {
+    const id = sh.includes('/d/') ? sh.split('/d/')[1].split('/')[0] : sh;
+    window.open(`https://docs.google.com/spreadsheets/d/${id}/edit`, '_blank');
+  } else {
+    window.open('https://sheets.new', '_blank');
+  }
 };
 
-$('#btnImportJSON').onclick = () => { $('#fileJSON').click(); };
-$('#fileJSON').onchange = e => {
-  const f = e.target.files && e.target.files[0];
-  if (!f) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    try {
-      const data = JSON.parse(ev.target.result);
-      if (Array.isArray(data.alat) && Array.isArray(data.jadwal)) {
-        S = data;
-        saveLocal(); render();
-        toast('Data berhasil dipulihkan dari file JSON!');
-        $('#dlgBackup').close();
-      } else {
-        toast('Format file cadangan tidak valid');
+// Download Kerangka Code.gs
+const codeGSContent = `/* 
+  GOOGLE APPS SCRIPT (Code.gs) 
+  Sistem Kalibrasi & Verifikasi Timbangan 2-Arah
+*/
+function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var db = { alat: [], jadwal: [], periksa: [] };
+  
+  // Ambil dari Sheet Daftar_Alat
+  var shAlat = ss.getSheetByName("Daftar_Alat") || ss.insertSheet("Daftar_Alat");
+  var dataAlat = shAlat.getDataRange().getValues();
+  if (dataAlat.length > 1) {
+    for (var i = 1; i < dataAlat.length; i++) {
+      if (dataAlat[i][0]) {
+        db.alat.push({
+          kode: String(dataAlat[i][0]),
+          nama: String(dataAlat[i][1] || ''),
+          kap: String(dataAlat[i][2] || ''),
+          user: String(dataAlat[i][3] || ''),
+          tempat: String(dataAlat[i][4] || ''),
+          last: String(dataAlat[i][5] || ''),
+          next: String(dataAlat[i][6] || '')
+        });
       }
-    } catch {
-      toast('Gagal membaca file JSON');
     }
-  };
-  reader.readAsText(f);
-  e.target.value = '';
-};
-
-$('#btnExportCSVAlat').onclick = () => {
-  const headers = ['Kode Alat', 'Nama Alat', 'Kapasitas', 'Pengguna', 'Tempat Kalibrasi', 'Terakhir', 'Berikutnya'];
-  const rows = S.alat.map(a => [`"${a.kode}"`, `"${a.nama}"`, `"${a.kap}"`, `"${a.user}"`, `"${a.tempat||'-'}"`, `"${a.last||'-'}"`, `"${a.next||'-'}"`]);
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `daftar_alat_${TD}.csv`;
-  a.click();
-  toast('File CSV Daftar Alat berhasil diunduh');
-};
-
-$('#btnExportCSVPeriksa').onclick = () => {
-  const headers = ['Tanggal', 'Kode Alat', 'Jenis', 'Toleransi (%)', 'Hasil', 'Pemeriksa', 'Titik Uji'];
-  const rows = S.periksa.map(p => {
-    const pts = p.pts.map(x => `${x.beban}->${x.baca}`).join('; ');
-    return [`"${p.tgl}"`, `"${p.kode}"`, `"${p.jenis}"`, `"${p.tol}"`, `"${p.ok?'Memenuhi':'Di Luar'}"`, `"${p.nama}"`, `"${pts}"`];
-  });
-  const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `riwayat_pemeriksaan_${TD}.csv`;
-  a.click();
-  toast('File CSV Riwayat Pemeriksaan berhasil diunduh');
-};
-
-$('#btnResetDefault').onclick = () => {
-  if (confirm('Kembalikan ke data contoh standar? Seluruh data akan di-reset.')) {
-    S = JSON.parse(JSON.stringify(defaultDB));
-    saveLocal(); render();
-    toast('Data dikembalikan ke pengaturan contoh');
-    $('#dlgBackup').close();
   }
+  
+  // Ambil dari Sheet Jadwal
+  var shJadwal = ss.getSheetByName("Jadwal") || ss.insertSheet("Jadwal");
+  var dataJadwal = shJadwal.getDataRange().getValues();
+  if (dataJadwal.length > 1) {
+    for (var i = 1; i < dataJadwal.length; i++) {
+      if (dataJadwal[i][0]) {
+        db.jadwal.push({
+          id: String(dataJadwal[i][0]),
+          kode: String(dataJadwal[i][1]),
+          jenis: String(dataJadwal[i][2]),
+          tgl: String(dataJadwal[i][3]),
+          selesai: Boolean(dataJadwal[i][4])
+        });
+      }
+    }
+  }
+
+  // Ambil dari Sheet Periksa
+  var shPeriksa = ss.getSheetByName("Periksa") || ss.insertSheet("Periksa");
+  var dataPeriksa = shPeriksa.getDataRange().getValues();
+  if (dataPeriksa.length > 1) {
+    for (var i = 1; i < dataPeriksa.length; i++) {
+      if (dataPeriksa[i][0]) {
+        try {
+          db.periksa.push(JSON.parse(dataPeriksa[i][1]));
+        } catch(err) {}
+      }
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({ status: "success", data: db }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Simpan Daftar Alat
+    var shAlat = ss.getSheetByName("Daftar_Alat") || ss.insertSheet("Daftar_Alat");
+    shAlat.clear();
+    shAlat.appendRow(["Kode", "Nama Alat", "Kapasitas", "Pengguna", "Tempat Kalibrasi", "Terakhir", "Berikutnya"]);
+    if (data.alat) {
+      data.alat.forEach(function(a) {
+        shAlat.appendRow([a.kode, a.nama, a.kap, a.user, a.tempat, a.last, a.next]);
+      });
+    }
+    
+    // Simpan Jadwal
+    var shJadwal = ss.getSheetByName("Jadwal") || ss.insertSheet("Jadwal");
+    shJadwal.clear();
+    shJadwal.appendRow(["ID", "Kode", "Jenis", "Tanggal", "Selesai"]);
+    if (data.jadwal) {
+      data.jadwal.forEach(function(j) {
+        shJadwal.appendRow([j.id, j.kode, j.jenis, j.tgl, j.selesai]);
+      });
+    }
+
+    // Simpan Periksa
+    var shPeriksa = ss.getSheetByName("Periksa") || ss.insertSheet("Periksa");
+    shPeriksa.clear();
+    shPeriksa.appendRow(["ID", "JSON_Data"]);
+    if (data.periksa) {
+      data.periksa.forEach(function(p) {
+        shPeriksa.appendRow([p.id, JSON.stringify(p)]);
+      });
+    }
+
+    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+`;
+
+$('#btnDownloadCodeGS').onclick = () => {
+  const blob = new Blob([codeGSContent], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'Code.gs';
+  a.click();
+  toast('File Code.gs berhasil diunduh!');
 };
 
-/* ===== General Dialog Helper ===== */
-let onOk = null;
-function dialog(t, html, fn, label) {
-  $('#dTitle').textContent = t;
-  $('#dBody').innerHTML = html;
-  $('#dOk').textContent = label || 'Simpan';
-  onOk = fn;
-  $('#dlg').showModal();
-}
-$('#dForm').onsubmit = e => { e.preventDefault(); if (onOk && onOk() === false) return; $('#dlg').close(); };
-$('#dCancel').onclick = () => $('#dlg').close();
+$('#btnSalinScriptCode').onclick = () => {
+  navigator.clipboard.writeText(codeGSContent);
+  toast('Kode script Code.gs berhasil disalin ke clipboard!');
+};
 
-/* ===== Export Kerangka Multi-Tab Excel (.xls) ===== */
-function exportKerangkaExcel() {
-  const xml = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- <Styles>
-  <Style ss:ID="Header">
-   <Font ss:Bold="1" ss:Color="#FFFFFF"/>
-   <Interior ss:Color="#0F5C6E" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-  </Style>
- </Styles>
- <Worksheet ss:Name="Daftar_Alat">
-  <Table>
-   <Row ss:StyleID="Header">
-    <Cell><Data ss:Type="String">Kode Alat</Data></Cell>
-    <Cell><Data ss:Type="String">Nama Alat</Data></Cell>
-    <Cell><Data ss:Type="String">Kapasitas</Data></Cell>
-    <Cell><Data ss:Type="String">Pengguna</Data></Cell>
-    <Cell><Data ss:Type="String">Tempat Kalibrasi</Data></Cell>
-    <Cell><Data ss:Type="String">Kalibrasi Terakhir</Data></Cell>
-    <Cell><Data ss:Type="String">Kalibrasi Berikutnya</Data></Cell>
-   </Row>
-   ${S.alat.map(a => `
-   <Row>
-    <Cell><Data ss:Type="String">${esc(a.kode)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(a.nama)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(a.kap)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(a.user)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(a.tempat || '-')}</Data></Cell>
-    <Cell><Data ss:Type="String">${a.last || ''}</Data></Cell>
-    <Cell><Data ss:Type="String">${a.next || ''}</Data></Cell>
-   </Row>`).join('')}
-  </Table>
- </Worksheet>
- <Worksheet ss:Name="Jadwal">
-  <Table>
-   <Row ss:StyleID="Header">
-    <Cell><Data ss:Type="String">ID Jadwal</Data></Cell>
-    <Cell><Data ss:Type="String">Kode Alat</Data></Cell>
-    <Cell><Data ss:Type="String">Jenis Kegiatan</Data></Cell>
-    <Cell><Data ss:Type="String">Tanggal Rencana</Data></Cell>
-    <Cell><Data ss:Type="String">Status Selesai</Data></Cell>
-   </Row>
-   ${S.jadwal.map(j => `
-   <Row>
-    <Cell><Data ss:Type="String">${esc(j.id)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(j.kode)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(j.jenis)}</Data></Cell>
-    <Cell><Data ss:Type="String">${j.tgl || ''}</Data></Cell>
-    <Cell><Data ss:Type="String">${j.selesai ? 'TRUE' : 'FALSE'}</Data></Cell>
-   </Row>`).join('')}
-  </Table>
- </Worksheet>
- <Worksheet ss:Name="Riwayat_Pemeriksaan">
-  <Table>
-   <Row ss:StyleID="Header">
-    <Cell><Data ss:Type="String">ID Pemeriksaan</Data></Cell>
-    <Cell><Data ss:Type="String">Tanggal</Data></Cell>
-    <Cell><Data ss:Type="String">Kode Alat</Data></Cell>
-    <Cell><Data ss:Type="String">Jenis</Data></Cell>
-    <Cell><Data ss:Type="String">Satuan</Data></Cell>
-    <Cell><Data ss:Type="String">Toleransi (%)</Data></Cell>
-    <Cell><Data ss:Type="String">Hasil</Data></Cell>
-    <Cell><Data ss:Type="String">Pemeriksa</Data></Cell>
-    <Cell><Data ss:Type="String">Titik Uji</Data></Cell>
-   </Row>
-   ${S.periksa.map(p => `
-   <Row>
-    <Cell><Data ss:Type="String">${esc(p.id)}</Data></Cell>
-    <Cell><Data ss:Type="String">${p.tgl || ''}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(p.kode)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(p.jenis)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(p.sat)}</Data></Cell>
-    <Cell><Data ss:Type="Number">${p.tol}</Data></Cell>
-    <Cell><Data ss:Type="String">${p.ok ? 'MEMENUHI' : 'DI LUAR'}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(p.nama)}</Data></Cell>
-    <Cell><Data ss:Type="String">${esc(JSON.stringify(p.pts))}</Data></Cell>
-   </Row>`).join('')}
-  </Table>
- </Worksheet>
-</Workbook>`;
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+$('#btnDownloadTemplateHTML').onclick = () => {
+  const guide = `PANDUAN PEMASANGAN GOOGLE APPS SCRIPT:\n1. Buka Google Sheets baru di https://sheets.new\n2. Klik menu "Ekstensi" > "Apps Script".\n3. Hapus semua kode bawaan, lalu tempel (paste) kode dari file Code.gs.\n4. Klik "Terapkan" atau "Deploy" > "Deployment Baru" (New Deployment).\n5. Pilih jenis: "Akses Web App" (Execute as: Me, Who has access: Anyone).\n6. Salin URL Web App dan tempel ke kolom pengaturan pada aplikasi web ini.`;
+  const blob = new Blob([guide], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `Kerangka_Kalibrasi_Timbangan_${TD}.xls`;
+  a.href = url; a.download = 'Panduan_Integrasi_Sheets.txt';
   a.click();
-  toast('Kerangka format Excel (.xls) 3 Tab berhasil diunduh! Buka di Excel atau Import ke Google Sheets.');
+  toast('Panduan diunduh!');
+};
+
+function exportKerangkaExcel() {
+  let csv = "Kode,Nama Alat,Kapasitas,Pengguna,Tempat Kalibrasi,Terakhir,Berikutnya\n";
+  S.alat.forEach(a => {
+    csv += `"${a.kode}","${a.nama}","${a.kap}","${a.user}","${a.tempat||''}","${a.last}","${a.next}"\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'Kerangka_Daftar_Timbangan.csv';
+  link.click();
+  toast('Kerangka CSV Excel diunduh!');
 }
 
-if ($('#dlgCert')) $('#dlgCert').addEventListener('close', () => { if ($('#print-area')) $('#print-area').innerHTML = ''; });
-if ($('#dlgQR')) $('#dlgQR').addEventListener('close', () => { if ($('#print-area')) $('#print-area').innerHTML = ''; });
-
+/* ===== Backup & Export JSON/CSV ===== */
 function render() {
   dashboard();
   tbAlat();
   tbJadwal();
+  initPeriksa();
   tbPeriksa();
 }
 
-// Initial Render on load & Auto-Sync
-window.addEventListener('DOMContentLoaded', () => {
-  render();
-  autoPullFromGoogleSheets(true);
-});
+// Inisialisasi awal aplikasi
 render();
-
-// Jalankan auto-pull pada startup
-autoPullFromGoogleSheets(true);
-
-// Sinkronisasi otomatis berkala di latar belakang setiap 10 detik tanpa perlu klik tombol
-setInterval(() => {
-  autoPullFromGoogleSheets(true);
-}, 10000);
-
-// Sinkronisasi otomatis begitu pengguna membuka kembali tab peramban ini
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    autoPullFromGoogleSheets(true);
-  }
-});
-window.addEventListener('focus', () => {
-  autoPullFromGoogleSheets(true);
-});
+setInterval(() => { autoPullFromGoogleSheets(true); }, 15000);
 </script>
 </body>
 </html>
