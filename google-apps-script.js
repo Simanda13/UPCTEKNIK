@@ -266,6 +266,12 @@ function formatDate(val) {
   if (m) {
     return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
   }
+  // Menangani format seperti "Fri Oct 02 2026 07:00:00 GMT+0700 (Waktu Indonesia Barat)"
+  const cleanStr = s.replace(/\s*\([^)]*\)$/, '');
+  const parsed = new Date(cleanStr);
+  if (!isNaN(parsed.getTime())) {
+    return Utilities.formatDate(parsed, Session.getScriptTimeZone() || 'Asia/Jakarta', 'yyyy-MM-dd');
+  }
   return s;
 }
 

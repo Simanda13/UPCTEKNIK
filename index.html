@@ -213,7 +213,11 @@ section.view{display:none}section.view.on{display:block}
   </button>
  </nav>
  <div class="foot">
-  <button class="btn sm" id="btnSheets" style="width:100%;margin-bottom:8px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3)">Google Sheets</button>
+  <button class="btn sm" id="btnSheets" style="width:100%;margin-bottom:6px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3)">Google Sheets</button>
+  <div id="syncBadge" style="font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:6px;margin-bottom:6px">
+    <span id="syncDot" style="width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block"></span>
+    <span id="syncText">Sinkron Otomatis</span>
+  </div>
   <span>Sistem Metrologi Mandiri v2.0</span>
  </div>
 </aside>
@@ -443,10 +447,74 @@ const $ = s => document.querySelector(s);
 const day = 864e5;
 const iso = n => new Date(Date.now() + n * day).toISOString().slice(0, 10);
 const esc = s => String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'}) : '-';
 const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 const Y = new Date().getFullYear();
 const TD = iso(0);
+
+// Universal Date Normalizer: Mengatasi format seperti "Fri Oct 02 2026 07:00:00 GMT+0700 (Waktu Indonesia Barat)"
+function normDate(val) {
+  if (!val) return '';
+  const s = String(val).trim();
+  if (!s || s === '-' || s === 'null' || s === 'undefined') return '';
+
+  // Format baku YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // Format ISO timestamp YYYY-MM-DD...
+  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`;
+
+  // Format Google Visualization Date(YYYY, MM, DD)
+  const gvizMatch = s.match(/Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)/);
+  if (gvizMatch) return `${gvizMatch[1]}-${String(parseInt(gvizMatch[2], 10) + 1).padStart(2, '0')}-${gvizMatch[3].padStart(2, '0')}`;
+
+  // Format representasi Date JS: "Fri Oct 02 2026 07:00:00 GMT+0700 (Waktu Indonesia Barat)"
+  const cleanStr = s.replace(/\s*\([^)]*\)$/, '');
+  const parsed = new Date(cleanStr);
+  if (!isNaN(parsed.getTime())) {
+    const yr = parsed.getFullYear();
+    const mo = String(parsed.getMonth() + 1).padStart(2, '0');
+    const da = String(parsed.getDate()).padStart(2, '0');
+    return `${yr}-${mo}-${da}`;
+  }
+  return s;
+}
+
+function normAllDates(db) {
+  if (!db) return;
+  if (Array.isArray(db.alat)) {
+    db.alat.forEach(a => {
+      a.last = normDate(a.last);
+      a.next = normDate(a.next);
+    });
+  }
+  if (Array.isArray(db.jadwal)) {
+    db.jadwal.forEach(j => {
+      j.tgl = normDate(j.tgl);
+    });
+  }
+  if (Array.isArray(db.periksa)) {
+    db.periksa.forEach(p => {
+      p.tgl = normDate(p.tgl);
+    });
+  }
+}
+
+const fmt = d => {
+  const n = normDate(d);
+  if (!n) return '-';
+  const parts = n.split('-');
+  if (parts.length === 3) {
+    const yr = parseInt(parts[0], 10);
+    const mo = parseInt(parts[1], 10) - 1;
+    const da = parseInt(parts[2], 10);
+    if (!isNaN(yr) && !isNaN(mo) && !isNaN(da) && mo >= 0 && mo < 12) {
+      return `${da} ${BLN[mo]} ${yr}`;
+    }
+  }
+  const dt = new Date(n);
+  return !isNaN(dt.getTime()) ? dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : (d || '-');
+};
 
 // Default initial dataset
 const defaultDB = {
@@ -474,26 +542,160 @@ const defaultDB = {
 };
 
 let S = JSON.parse(localStorage.getItem('kalibrasi_html_db') || 'null') || defaultDB;
-const saveLocal = () => {
-  localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
-  const scriptUrl = localStorage.getItem('kalibrasi_script_url');
-  if (scriptUrl) {
+normAllDates(S);
+normAllDates(defaultDB);
+
+/* ===== Automatic 2-Way Sync Engine ===== */
+let isAutoSyncing = false;
+let autoPushTimer = null;
+
+function updateSyncBadge(type, text) {
+  const dot = $('#syncDot');
+  const txt = $('#syncText');
+  if (!dot || !txt) return;
+  if (type === 'ok') {
+    dot.style.background = '#10b981';
+    txt.textContent = text || 'Sinkron Otomatis';
+    txt.style.color = '#34d399';
+  } else if (type === 'syncing') {
+    dot.style.background = '#f59e0b';
+    txt.textContent = text || 'Menyinkronkan...';
+    txt.style.color = '#fbbf24';
+  } else if (type === 'err') {
+    dot.style.background = '#ef4444';
+    txt.textContent = text || 'Gagal Sinkron';
+    txt.style.color = '#f87171';
+  } else {
+    dot.style.background = '#94a3b8';
+    txt.textContent = text || 'Belum Terhubung';
+    txt.style.color = '#94a3b8';
+  }
+}
+
+// 1. Otomatis kirim ke Google Sheets setiap kali ada penambahan, pengeditan, atau penghapusan
+function autoPushToGoogleSheets() {
+  const scriptUrl = (localStorage.getItem('kalibrasi_script_url') || '').trim();
+  if (!scriptUrl) {
+    updateSyncBadge('idle', 'Hubungkan Google Sheets');
+    return;
+  }
+  clearTimeout(autoPushTimer);
+  updateSyncBadge('syncing', 'Menyimpan ke Sheets...');
+  autoPushTimer = setTimeout(async () => {
     try {
-      fetch(scriptUrl, {
+      await fetch(scriptUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(S),
         mode: 'no-cors'
-      }).catch(() => {});
-    } catch (e) {}
-  }
+      });
+      const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+      updateSyncBadge('ok', `Tersinkron (${timeStr})`);
+    } catch (e) {
+      updateSyncBadge('err', 'Gagal kirim');
+    }
+  }, 400);
+}
+
+const saveLocal = () => {
+  normAllDates(S);
+  localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
+  autoPushToGoogleSheets();
 };
 
-const dleft = d => Math.round((new Date(d + 'T00:00:00') - new Date(TD + 'T00:00:00')) / day);
+// 2. Otomatis tarik dari Google Sheets secara berkala di background tanpa klik tombol
+async function autoPullFromGoogleSheets(silent = true) {
+  const scriptUrl = (localStorage.getItem('kalibrasi_script_url') || '').trim();
+  const sheetId = (localStorage.getItem('kalibrasi_sheet_id') || '').trim();
+  if (!scriptUrl && !sheetId) {
+    updateSyncBadge('idle', 'Belum Terhubung');
+    return;
+  }
+
+  if (isAutoSyncing) return;
+  isAutoSyncing = true;
+  if (!silent) updateSyncBadge('syncing', 'Memeriksa perubahan...');
+
+  try {
+    if (scriptUrl) {
+      const res = await fetch(scriptUrl);
+      const json = await res.json();
+      if (json && json.status === 'success' && json.data) {
+        normAllDates(json.data);
+        const newAlat = json.data.alat || [];
+        const newJadwal = json.data.jadwal || [];
+        const newPeriksa = json.data.periksa || [];
+
+        // Bandingkan apakah ada perbedaan data
+        if (JSON.stringify(newAlat) !== JSON.stringify(S.alat) ||
+            JSON.stringify(newJadwal) !== JSON.stringify(S.jadwal) ||
+            JSON.stringify(newPeriksa) !== JSON.stringify(S.periksa)) {
+          S.alat = newAlat;
+          S.jadwal = newJadwal;
+          S.periksa = newPeriksa;
+          normAllDates(S);
+          localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
+          render();
+          if (!silent) toast('Data otomatis diperbarui dari Google Sheets!');
+        }
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        updateSyncBadge('ok', `Tersinkron (${timeStr})`);
+        isAutoSyncing = false;
+        return;
+      }
+    }
+
+    if (sheetId) {
+      const resAlat = await fetch(`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=Daftar_Alat`);
+      if (resAlat.ok) {
+        const textAlat = await resAlat.text();
+        const rows = parseCSV(textAlat);
+        if (rows.length > 1) {
+          const parsedAlat = [];
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            if (r[0] && r[0].trim()) {
+              parsedAlat.push({
+                kode: r[0].trim().toUpperCase(),
+                nama: r[1] ? r[1].trim() : r[0].trim(),
+                kap: r[2] ? r[2].trim() : '30 kg',
+                user: r[3] ? r[3].trim() : 'Umum',
+                tempat: r[4] ? r[4].trim() : '',
+                last: normDate(r[5]),
+                next: normDate(r[6])
+              });
+            }
+          }
+          if (parsedAlat.length > 0 && JSON.stringify(parsedAlat) !== JSON.stringify(S.alat)) {
+            S.alat = parsedAlat;
+            localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
+            render();
+          }
+        }
+        const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        updateSyncBadge('ok', `Tersinkron (${timeStr})`);
+      }
+    }
+  } catch (err) {
+    console.warn('Auto sync check error:', err);
+    if (!silent) updateSyncBadge('err', 'Gagal periksa');
+  } finally {
+    isAutoSyncing = false;
+  }
+}
+
+const dleft = d => {
+  const n = normDate(d);
+  if (!n) return 999;
+  const target = new Date(n + 'T00:00:00');
+  const now = new Date(TD + 'T00:00:00');
+  return Math.round((target - now) / day);
+};
 const sisa = d => {
-  if (!d) return null;
-  const n = dleft(d);
-  return n < 0 ? [`Lewat ${-n} hari`, 'bad'] : n === 0 ? ['Hari ini', 'warn'] : n <= 30 ? [`${n} hari lagi`, 'warn'] : [`${n} hari lagi`, 'ok'];
+  const n = normDate(d);
+  if (!n) return null;
+  const daysLeft = dleft(n);
+  return daysLeft < 0 ? [`Lewat ${-daysLeft} hari`, 'bad'] : daysLeft === 0 ? ['Hari ini', 'warn'] : daysLeft <= 30 ? [`${daysLeft} hari lagi`, 'warn'] : [`${daysLeft} hari lagi`, 'ok'];
 };
 
 const alatOf = k => S.alat.find(a => a.kode.toLowerCase() === String(k).toLowerCase());
@@ -546,7 +748,10 @@ function renderVerificationTrendChart() {
   const dataPassRate = [];
 
   m6.forEach(m => {
-    const tests = S.periksa.filter(p => p.tgl && p.tgl.slice(0, 7) === m.key);
+    const tests = S.periksa.filter(p => {
+      const pDate = normDate(p.tgl);
+      return pDate && pDate.slice(0, 7) === m.key;
+    });
     const ok = tests.filter(p => p.ok).length;
     const bad = tests.filter(p => !p.ok).length;
     const tot = ok + bad;
@@ -654,14 +859,15 @@ function renderVerificationTrendChart() {
 function dashboard() {
   const s = Array(12).fill(0), u = Array(12).fill(0);
   S.jadwal.forEach(j => {
-    if (+j.tgl.slice(0, 4) === Y) {
-      const m = +j.tgl.slice(5, 7) - 1;
+    const jd = normDate(j.tgl);
+    if (jd && +jd.slice(0, 4) === Y) {
+      const m = +jd.slice(5, 7) - 1;
       if (m >= 0 && m < 12) (j.selesai ? s : u)[m]++;
     }
   });
   const ts = s.reduce((a, b) => a + b, 0);
   const tu = u.reduce((a, b) => a + b, 0);
-  const late = S.jadwal.filter(j => !j.selesai && j.tgl < TD).length;
+  const late = S.jadwal.filter(j => !j.selesai && normDate(j.tgl) < TD).length;
   const pct = Math.round((ts / Math.max(1, ts + tu)) * 100);
   const cm = new Date().getMonth();
 
@@ -973,21 +1179,25 @@ function labelQR(kode) {
 /* ===== Jadwal Master ===== */
 function tbJadwal() {
   const th = $('#fTh'), bl = $('#fBl');
-  const yrs = [...new Set([String(Y), ...S.jadwal.map(j => j.tgl.slice(0, 4))])].sort();
+  const yrs = [...new Set([String(Y), ...S.jadwal.map(j => normDate(j.tgl).slice(0, 4)).filter(Boolean)])].sort();
   if (!th.options.length) {
     th.innerHTML = '<option value="">Semua Tahun</option>' + yrs.map(y => `<option value="${y}">${y}</option>`).join('');
     th.value = String(Y);
     bl.innerHTML = '<option value="">Semua Bulan</option>' + BLN.map((m, i) => `<option value="${String(i + 1).padStart(2, '0')}">${m}</option>`).join('');
   }
-  const r = S.jadwal.filter(j => (!th.value || j.tgl.slice(0, 4) === th.value) && (!bl.value || j.tgl.slice(5, 7) === bl.value)).sort((a, b) => a.tgl.localeCompare(b.tgl));
+  const r = S.jadwal.filter(j => {
+    const jt = normDate(j.tgl);
+    return (!th.value || jt.slice(0, 4) === th.value) && (!bl.value || jt.slice(5, 7) === bl.value);
+  }).sort((a, b) => normDate(a.tgl).localeCompare(normDate(b.tgl)));
   $('#tbJadwal').innerHTML = r.map(j => {
-    const isOverdue = !j.selesai && j.tgl < TD;
+    const jt = normDate(j.tgl);
+    const isOverdue = !j.selesai && jt < TD;
     const a = alatOf(j.kode);
     return `<tr>
       <td class="kode">${j.kode}</td>
       <td><b>${esc(a?.nama || '-')}</b></td>
       <td>${j.jenis}</td>
-      <td>${fmt(j.tgl)}</td>
+      <td>${fmt(jt)}</td>
       <td><span class="tag ${j.selesai ? 'ok' : isOverdue ? 'bad' : 'warn'}">${j.selesai ? 'Selesai' : isOverdue ? 'Terlambat' : 'Terjadwal'}</span></td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:4px">
@@ -1778,11 +1988,30 @@ function render() {
   tbPeriksa();
 }
 
-// Initial Render on load
+// Initial Render on load & Auto-Sync
 window.addEventListener('DOMContentLoaded', () => {
   render();
+  autoPullFromGoogleSheets(true);
 });
 render();
+
+// Jalankan auto-pull pada startup
+autoPullFromGoogleSheets(true);
+
+// Sinkronisasi otomatis berkala di latar belakang setiap 10 detik tanpa perlu klik tombol
+setInterval(() => {
+  autoPullFromGoogleSheets(true);
+}, 10000);
+
+// Sinkronisasi otomatis begitu pengguna membuka kembali tab peramban ini
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    autoPullFromGoogleSheets(true);
+  }
+});
+window.addEventListener('focus', () => {
+  autoPullFromGoogleSheets(true);
+});
 </script>
 </body>
 </html>
