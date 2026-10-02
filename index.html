@@ -153,19 +153,34 @@ section.view{display:none}section.view.on{display:block}
 #qrV{width:100%;border-radius:10px;background:#000;aspect-ratio:4/3;object-fit:cover}
 
 /* PRINT CERTIFICATE & LABEL STYLES */
+#print-area { display: none; }
 @media print {
   body * { visibility: hidden !important; }
   #print-area, #print-area * { visibility: visible !important; }
-  #print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; background: #fff !important; color: #000 !important; }
+  #print-area { display: block !important; position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; background: #fff !important; color: #000 !important; }
 }
 
 @media(max-width:860px){
   .app{grid-template-columns:1fr}
-  aside{position:fixed;inset:auto 0 0 0;top:auto;height:auto;flex-direction:row;padding:8px 12px;z-index:50;justify-content:space-around;border-top:1px solid #1e293b}
+  aside{
+    position:fixed !important;
+    bottom:0 !important;
+    left:0 !important;
+    right:0 !important;
+    top:auto !important;
+    height:auto !important;
+    flex-direction:row !important;
+    padding:8px 12px !important;
+    z-index:999 !important;
+    justify-content:space-around !important;
+    border-top:1px solid #1e293b !important;
+    background:var(--side) !important;
+    box-shadow:0 -4px 16px rgba(0,0,0,0.25) !important;
+  }
   .brand,.foot{display:none}
   nav{display:flex;flex-direction:row;width:100%;justify-content:space-around}
   nav button{flex-direction:column;gap:2px;font-size:10px;padding:6px;text-align:center}
-  main{padding-bottom:96px}
+  main{padding-bottom:110px !important}
   .grid2{grid-template-columns:1fr}
 }
 </style>
@@ -198,8 +213,7 @@ section.view{display:none}section.view.on{display:block}
   </button>
  </nav>
  <div class="foot">
-  <button class="btn sm" id="btnSheets" style="width:100%;margin-bottom:6px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3)">Google Sheets</button>
-  <button class="btn sm" id="btnBackup" style="width:100%;margin-bottom:8px">Backup &amp; Ekspor</button>
+  <button class="btn sm" id="btnSheets" style="width:100%;margin-bottom:8px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3)">Google Sheets</button>
   <span>Sistem Metrologi Mandiri v2.0</span>
  </div>
 </aside>
@@ -209,7 +223,12 @@ section.view{display:none}section.view.on{display:block}
 <section class="view on" id="v-dashboard">
  <header class="top">
   <div><h1>Dashboard Metrologi</h1><p class="sub" id="dSub"></p></div>
-  <button class="btn pri" onclick="go('periksa')">+ Pemeriksaan Baru</button>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+   <button class="btn" onclick="exportKerangkaExcel()" title="Unduh Format Excel 3 Tab Siap Pakai untuk Google Sheets">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg> Unduh Format Excel (.xls)
+   </button>
+   <button class="btn pri" onclick="go('periksa')">+ Pemeriksaan Baru</button>
+  </div>
  </header>
  <div class="stats" id="stats"></div>
 
@@ -256,7 +275,7 @@ section.view{display:none}section.view.on{display:block}
  <div class="tools"><input id="q" type="search" placeholder="Cari nama, kode, pengguna, atau tempat..."></div>
  <div class="card tw" style="padding:0">
   <table>
-   <thead><tr><th>No</th><th>Nama Alat</th><th>Kode Alat</th><th>Kapasitas</th><th>Pengguna</th><th>Tempat Kalibrasi</th><th>Terakhir</th><th>Berikutnya</th><th>Aksi</th></tr></thead>
+   <thead><tr><th>No</th><th>Nama Alat</th><th>Kode Alat</th><th>Kapasitas</th><th>Pengguna</th><th>Tempat Kalibrasi</th><th>WAKTU KALIBRASI<br><small style="font-weight:normal;color:var(--muted)">TERAKHIR - BERIKUTNYA</small></th><th>VERIFIKASI TERAKHIR</th><th>Aksi</th></tr></thead>
    <tbody id="tbAlat"></tbody>
   </table>
  </div>
@@ -295,6 +314,7 @@ section.view{display:none}section.view.on{display:block}
   <div class="info" id="pInfo"></div>
   
   <div id="pForm" style="display:none" class="form">
+   <label>Tanggal Pelaksanaan<input id="pTgl" type="date"></label>
    <label>Jenis Kegiatan<select id="pJenis"><option>Verifikasi</option><option>Kalibrasi</option></select></label>
    <label>Toleransi (%)<input id="pTol" type="number" step="any" min="0" value="0.1"></label>
    <label>Nama Pemeriksa / Teknisi<input id="pNama" value="Teknisi Metrologi QA"></label>
@@ -329,7 +349,7 @@ section.view{display:none}section.view.on{display:block}
  <h3>Riwayat Pemeriksaan Tersimpan</h3>
  <div class="card tw" style="padding:0">
   <table>
-   <thead><tr><th>Tanggal</th><th>Nama Alat</th><th>Kode</th><th>Kapasitas</th><th>Pengguna</th><th>Jenis</th><th>Titik Uji</th><th>Hasil</th><th>Aksi</th></tr></thead>
+   <thead><tr><th>Tanggal</th><th>Nama Alat</th><th>Kode</th><th>Kapasitas</th><th>Pengguna</th><th>Jenis</th><th>Titik Uji</th><th>Hasil</th><th>Summary</th><th>Aksi</th></tr></thead>
    <tbody id="tbPeriksa"></tbody>
   </table>
  </div>
@@ -344,20 +364,50 @@ section.view{display:none}section.view.on{display:block}
 <dialog id="dlgScan"><h3>Scan QR Timbangan</h3><video id="qrV" playsinline muted></video><p class="sub" id="qrMsg" style="margin:10px 0 0"></p><div class="acts"><button class="btn" id="qrX">Tutup</button></div></dialog>
 <dialog id="dlgCert" class="wide"><div id="certBody"></div><div class="acts"><button class="btn" onclick="$('#dlgCert').close()">Tutup</button><button class="btn pri" onclick="window.print()">Cetak / Simpan PDF</button></div></dialog>
 
-<!-- GOOGLE SHEETS MODAL -->
+<!-- GOOGLE SHEETS MODAL (KERANGKA SIAP PAKAI 2-ARAH) -->
 <dialog id="dlgSheets" class="wide">
- <h3>Integrasi 2-Arah Google Sheets</h3>
- <p class="sub" style="margin-bottom:14px">Hubungkan data timbangan langsung ke Google Sheets Anda untuk edit, tambah, atau hapus lewat web maupun spreadsheet.</p>
+ <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+  <h3 style="margin:0">Integrasi 2-Arah Google Sheets</h3>
+  <button class="btn sm" onclick="$('#dlgSheets').close()">&times;</button>
+ </div>
+ <p class="sub" style="margin-bottom:14px">Hubungkan ke kerangka Google Sheets siap pakai. Anda dapat mengedit, menambah, atau menghapus data langsung lewat Google Sheets atau lewat aplikasi web.</p>
+
+ <!-- Kerangka Template Siap Pakai -->
+ <div style="padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:14px;font-size:13px">
+  <div style="font-weight:700;color:#166534;margin-bottom:4px">Kerangka Spreadsheet Siap Pakai (3 Tab Otomatis):</div>
+  <div style="color:#15803d;font-size:12px;margin-bottom:10px;line-height:1.6">
+   Nama sheet/tab di Google Sheets Anda:<br>
+   &bull; <b>Daftar_Alat</b>: Kode Alat | Nama Alat | Kapasitas | Pengguna | Tempat Kalibrasi | Terakhir | Berikutnya<br>
+   &bull; <b>Jadwal</b>: ID Jadwal | Kode Alat | Jenis Kegiatan | Tanggal Rencana | Status Selesai<br>
+   &bull; <b>Riwayat_Pemeriksaan</b>: ID | Tanggal | Kode Alat | Jenis | Satuan | Toleransi (%) | Hasil | Pemeriksa | Titik Uji
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+   <button class="btn sm pri" onclick="exportKerangkaExcel()">Unduh File Excel (3 Tab Siap Pakai)</button>
+   <button class="btn sm" id="btnSalinTemplate">Salin Header 3 Tab ke Clipboard</button>
+   <button class="btn sm" id="btnCopyDataTSV">Salin Seluruh Data Web (Siap Paste ke Sheets)</button>
+  </div>
+ </div>
+
  <div class="form" style="grid-template-columns:1fr;gap:12px">
-  <label>ID atau URL Google Sheets
-   <input id="sheetInput" placeholder="Tempel URL atau ID Google Sheets (contoh: 1BxiMVs0XRA5n...)">
+  <label>ID atau URL Google Sheets Anda
+   <input id="sheetInput" placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5n... atau ID spreadsheet">
+   <small style="color:var(--muted);font-weight:normal">💡 Pastikan izin berbagi spreadsheet telah dibuka: <i>Siapa saja yang memiliki link dapat melihat/mengedit</i>.</small>
   </label>
  </div>
+
  <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-  <button class="btn pri" id="btnConnectSheet">Simpan &amp; Hubungkan</button>
-  <button class="btn" id="btnExportToSheet">Kirim Data ke Sheets</button>
-  <button class="btn" id="btnPullFromSheet">Tarik Data dari Sheets</button>
+  <button class="btn pri" id="btnPullFromSheet">Tarik Data dari Google Sheets</button>
+  <button class="btn" id="btnExportToSheet">Buka di Google Sheets</button>
+  <button class="btn" id="btnConnectSheet">Simpan ID</button>
  </div>
+
+ <details style="margin-top:14px;padding:10px 14px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;font-size:12px">
+  <summary style="font-weight:700;cursor:pointer;color:var(--brand)">Opsi Pengiriman Otomatis (Google Apps Script Web App)</summary>
+  <p style="margin:8px 0;color:var(--muted)">Untuk mengirim pembaruan dari web langsung ke Google Sheets secara otomatis tanpa copy-paste, masukkan URL Web App Google Apps Script Anda:</p>
+  <input id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="margin-bottom:8px">
+  <button class="btn sm" id="btnPushToScript">Kirim Data ke Google Sheets</button>
+ </details>
+
  <div class="acts" style="margin-top:20px">
   <button class="btn" onclick="$('#dlgSheets').close()">Tutup</button>
  </div>
@@ -654,6 +704,9 @@ function tbAlat() {
   const r = S.alat.filter(a => (a.kode + ' ' + a.nama + ' ' + a.user + ' ' + (a.tempat || '')).toLowerCase().includes(q));
   $('#tbAlat').innerHTML = r.map((a, i) => {
     const t = sisa(a.next);
+    const verifRecords = S.periksa.filter(p => p.kode === a.kode).sort((x, y) => y.tgl.localeCompare(x.tgl));
+    const lastVerif = verifRecords[0];
+
     return `<tr data-r="${esc(a.kode)}">
       <td>${i + 1}</td>
       <td><b>${esc(a.nama)}</b></td>
@@ -661,12 +714,27 @@ function tbAlat() {
       <td>${esc(a.kap)}</td>
       <td>${esc(a.user)}</td>
       <td>${esc(a.tempat || '-')}</td>
-      <td>${fmt(a.last)}</td>
-      <td>${fmt(a.next)} ${t ? `<span class="tag ${t[1]}">${t[0]}</span>` : ''}</td>
+      <td>
+        <div style="font-size:12px;line-height:1.4">
+          <div><span style="color:var(--muted)">Terakhir:</span> <b>${fmt(a.last)}</b></div>
+          <div style="margin-top:2px"><span style="color:var(--muted)">Berikutnya:</span> <b>${fmt(a.next)}</b> ${t ? `<span class="tag ${t[1]}">${t[0]}</span>` : ''}</div>
+        </div>
+      </td>
+      <td>
+        ${lastVerif ? `<div><b>${fmt(lastVerif.tgl)}</b></div><span class="tag ${lastVerif.ok ? 'ok' : 'bad'}" style="margin-top:2px">${lastVerif.ok ? 'PASS' : 'FAIL'}</span>` : '<span style="color:var(--muted);font-size:12px">Belum ada</span>'}
+      </td>
       <td onclick="event.stopPropagation()">
-        <button class="btn sm" onclick="labelQR('${a.kode}')">QR</button>
-        <button class="btn sm" onclick="formAlat(alatOf('${a.kode}'))">Edit</button>
-        <button class="btn sm del" onclick="hapusAlat('${a.kode}')">Hapus</button>
+        <div style="display:flex;gap:4px">
+          <button class="btn sm" onclick="labelQR('${a.kode}')" title="Cetak Stiker QR">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          </button>
+          <button class="btn sm" onclick="formAlat(alatOf('${a.kode}'))" title="Edit Data Alat">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn sm del" onclick="hapusAlat('${a.kode}')" title="Hapus Alat">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </button>
+        </div>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:30px">Tidak ada alat ditemukan</td></tr>';
@@ -755,55 +823,115 @@ function detail(a) {
 }
 $('#d2Close').onclick = () => $('#dlg2').close();
 
-/* ===== Cetak Sertifikat Lembar Kerja ===== */
+/* ===== Cetak Sertifikat Lembar Kerja Sesuai Format F-BTN-10 ===== */
 function cetakSertifikat(pid) {
   const p = S.periksa.find(x => String(x.id) === String(pid));
   if (!p) return;
   const a = alatOf(p.kode) || {nama:'-', kap:'-', user:'-'};
   const certHtml = `
-    <div style="border:2px solid #0f172a;padding:24px;border-radius:12px;font-family:'Plus Jakarta Sans',sans-serif">
-      <div style="border-bottom:2px solid #0f172a;padding-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <h2 style="margin:0;font-size:18px;text-transform:uppercase">UPT Metrologi &amp; Penjaminan Mutu (QA/QC)</h2>
-          <p style="margin:2px 0 0;font-size:12px;color:#475569">Laboratorium Kalibrasi dan Verifikasi Internal Timbangan</p>
-        </div>
-        <div style="text-align:right">
-          <div style="font-weight:700;font-size:12px;border:1px solid #0f172a;padding:4px 8px;border-radius:4px;display:inline-block">${p.jenis.toUpperCase()} TIMBANGAN</div>
-          <p style="margin:4px 0 0;font-size:11px;font-family:monospace">No: CERT-${p.kode}-${p.tgl.replace(/-/g,'')}</p>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;padding:12px;background:#f8fafc;border-radius:8px;font-size:13px">
-        <div><b>Nama Alat:</b> ${esc(a.nama)}</div>
-        <div><b>Kode Inventaris:</b> <span style="font-family:monospace;font-weight:700">${esc(p.kode)}</span></div>
-        <div><b>Kapasitas:</b> ${esc(a.kap)}</div>
-        <div><b>Bagian / Pengguna:</b> ${esc(a.user)}</div>
-        <div><b>Tanggal Pelaksanaan:</b> ${fmt(p.tgl)}</div>
-        <div><b>Toleransi:</b> &plusmn;${p.tol}%</div>
-      </div>
-      <h4 style="margin:14px 0 6px;font-size:13px">Hasil Titik Beban Uji</h4>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px">
-        <thead><tr style="background:#e2e8f0"><th style="padding:6px;border:1px solid #cbd5e1">Beban Nominal (L)</th><th style="padding:6px;border:1px solid #cbd5e1">Penunjukan (I)</th><th style="padding:6px;border:1px solid #cbd5e1">Selisih (E = I - L)</th><th style="padding:6px;border:1px solid #cbd5e1">Batas Toleransi</th><th style="padding:6px;border:1px solid #cbd5e1">Hasil</th></tr></thead>
-        <tbody>
-          ${p.pts.map(pt => {
-            const diff = pt.baca - pt.beban;
-            const lim = pt.beban * p.tol / 100;
-            return `<tr>
-              <td style="padding:6px;border:1px solid #cbd5e1;text-align:center">${pt.beban} ${p.sat}</td>
-              <td style="padding:6px;border:1px solid #cbd5e1;text-align:center">${pt.baca} ${p.sat}</td>
-              <td style="padding:6px;border:1px solid #cbd5e1;text-align:center">${diff > 0 ? '+'+diff.toFixed(4) : diff.toFixed(4)} ${p.sat}</td>
-              <td style="padding:6px;border:1px solid #cbd5e1;text-align:center">&plusmn;${lim.toFixed(4)} ${p.sat}</td>
-              <td style="padding:6px;border:1px solid #cbd5e1;text-align:center;font-weight:700;color:${pt.ok?'#15803d':'#b91c1c'}">${pt.ok?'MEMENUHI':'DI LUAR'}</td>
-            </tr>`;
-          }).join('')}
-        </tbody>
+    <div style="font-family:'Arial',sans-serif;color:#000;background:#fff;padding:24px;border:2px solid #000;max-width:820px;margin:0 auto">
+      <!-- Header Table -->
+      <table style="width:100%;border-collapse:collapse;border:2px solid #000;margin-bottom:20px">
+        <tr>
+          <td style="width:22%;border-right:2px solid #000;text-align:center;padding:12px;vertical-align:middle">
+            <div style="display:inline-block;background:#000;color:#fff;padding:6px 14px;border-radius:10px;font-family:'Arial Black',sans-serif;font-size:22px;letter-spacing:1px;line-height:1">
+              upc
+            </div>
+            <div style="font-size:10px;font-weight:900;letter-spacing:3px;margin-top:4px;color:#000">PLASTIC</div>
+          </td>
+          <td style="width:53%;text-align:center;padding:12px;vertical-align:middle;border-right:2px solid #000">
+            <div style="font-size:15px;font-weight:800;letter-spacing:0.5px">LAPORAN HASIL PENGECEKAN INTERNAL</div>
+          </td>
+          <td style="width:25%;padding:8px 12px;vertical-align:middle;font-size:11px;font-weight:700;line-height:1.8">
+            <div>NO DOKUMEN : F - BTN -10</div>
+            <div>NO REVISI &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: 01</div>
+          </td>
+        </tr>
       </table>
-      <div style="padding:12px;background:${p.ok?'#dcfce7':'#fee2e2'};border-radius:8px;font-weight:700;font-size:13px;color:${p.ok?'#15803d':'#b91c1c'}">
-        KESIMPULAN: ${p.ok ? 'LAIK PAKAI (SEMUA TITIK UJI MEMENUHI AMBANG TOLERANSI)' : 'TIDAK MEMENUHI SYARAT (PERLU PERBAIKAN / RE-ADJUSTMENT)'}
+
+      <!-- DATA ALAT UKUR -->
+      <div style="margin-bottom:18px">
+        <div style="font-weight:800;font-size:12px;margin-bottom:8px">DATA ALAT UKUR :</div>
+        <table style="width:100%;font-size:12px;line-height:2.2">
+          <tr>
+            <td style="width:170px">Jenis Alat Ukur</td>
+            <td style="width:15px">:</td>
+            <td style="border-bottom:1px solid #000;font-weight:700">TIMBANGAN DIGITAL</td>
+          </tr>
+          <tr>
+            <td>Merk /Type</td>
+            <td>:</td>
+            <td style="border-bottom:1px solid #000;font-weight:700">${esc(a.nama)}</td>
+          </tr>
+          <tr>
+            <td>No Seri</td>
+            <td>:</td>
+            <td style="border-bottom:1px solid #000;font-family:monospace;font-weight:700">${esc(p.kode)}</td>
+          </tr>
+          <tr>
+            <td>Kapasitas Alat</td>
+            <td>:</td>
+            <td style="border-bottom:1px solid #000;font-weight:700">${esc(a.kap)}</td>
+          </tr>
+          <tr>
+            <td>Ditempatkan di</td>
+            <td>:</td>
+            <td style="border-bottom:1px solid #000;font-weight:700">${esc(a.user).toUpperCase()}</td>
+          </tr>
+        </table>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;margin-top:30px;text-align:center;font-size:12px">
-        <div><p>Pemeriksa / Teknisi,</p><br><br><br><b>${esc(p.nama)}</b></div>
-        <div><p>Mengetahui Supervisor,</p><br><br><br><b>( ..................................... )</b></div>
+
+      <!-- HASIL KALIBRASI / PENGECEKAN -->
+      <div style="margin-bottom:24px">
+        <div style="font-weight:800;font-size:12px;margin-bottom:8px">HASIL KALIBRASI :</div>
+        <table style="width:100%;border-collapse:collapse;border:1.5px solid #000;font-size:12px;text-align:center">
+          <thead>
+            <tr style="border-bottom:1.5px solid #000;background:#f8fafc">
+              <th style="border-right:1px solid #000;padding:8px 4px;width:35px">NO</th>
+              <th style="border-right:1px solid #000;padding:8px 6px;width:95px">Tanggal</th>
+              <th style="border-right:1px solid #000;padding:8px 8px">Alat Yang Dipakai</th>
+              <th style="border-right:1px solid #000;padding:8px 8px;width:120px">Hasil</th>
+              <th style="border-right:1px solid #000;padding:8px 8px;width:100px">Toleransi</th>
+              <th style="padding:8px 8px;width:130px">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${p.pts.map((pt, idx) => {
+              const lim = pt.beban * p.tol / 100;
+              return `<tr>
+                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 4px">${idx + 1}</td>
+                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 6px">${fmt(p.tgl)}</td>
+                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px">Anak timbangan ${pt.beban} ${p.sat}</td>
+                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px;font-family:monospace;font-weight:700">${pt.baca} ${p.sat}</td>
+                <td style="border-top:1px solid #000;border-right:1px solid #000;padding:10px 8px">&plusmn;${+lim.toFixed(4)} ${p.sat}</td>
+                <td style="border-top:1px solid #000;padding:10px 8px;font-weight:700;color:${pt.ok ? '#15803d' : '#b91c1c'}">${pt.ok ? 'MEMENUHI SYARAT' : 'DI LUAR TOLERANSI'}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
+
+      <!-- Tanda Tangan Box Sesuai Format Form -->
+      <table style="width:100%;border-collapse:collapse;border:1.5px solid #000;font-size:12px;margin-top:20px">
+        <tr>
+          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top;height:85px">
+            <div>Dibuat Oleh :</div>
+            <div style="margin-top:40px;font-weight:700;text-decoration:underline">${esc(p.nama)}</div>
+          </td>
+          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top">
+            <div>Tanggal :</div>
+            <div style="margin-top:40px;font-weight:700">${fmt(p.tgl)}</div>
+          </td>
+          <td style="width:25%;border-right:1px solid #000;padding:10px 14px;vertical-align:top">
+            <div>Diserahkan Oleh :</div>
+            <div style="margin-top:40px;font-weight:700;text-decoration:underline">Supervisor QA</div>
+          </td>
+          <td style="width:25%;padding:10px 14px;vertical-align:top">
+            <div>Tanggal :</div>
+            <div style="margin-top:40px;font-weight:700">${fmt(p.tgl)}</div>
+          </td>
+        </tr>
+      </table>
     </div>
   `;
   $('#certBody').innerHTML = certHtml;
@@ -857,9 +985,20 @@ function tbJadwal() {
       <td>${j.jenis}</td>
       <td>${fmt(j.tgl)}</td>
       <td><span class="tag ${j.selesai ? 'ok' : isOverdue ? 'bad' : 'warn'}">${j.selesai ? 'Selesai' : isOverdue ? 'Terlambat' : 'Terjadwal'}</span></td>
-      <td>
-        ${!j.selesai ? `<button class="btn sm pri" onclick="go('periksa');$('#pKode').value='${j.kode}';pKode();">Periksa</button> <button class="btn sm" onclick="selesaiJadwal('${j.id}')">✓</button> ` : ''}
-        <button class="btn sm del" onclick="hapusJadwal('${j.id}')">Hapus</button>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
+          ${!j.selesai ? `
+            <button class="btn sm pri" onclick="go('periksa');$('#pKode').value='${j.kode}';pKode();" title="Periksa Sekarang">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>
+            </button>
+          ` : ''}
+          <button class="btn sm" onclick="formJadwal('${j.id}')" title="Edit Jadwal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn sm del" onclick="hapusJadwal('${j.id}')" title="Hapus Jadwal">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </button>
+        </div>
       </td>
     </tr>`;
   }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:24px">Tidak ada jadwal pada periode ini</td></tr>';
@@ -877,6 +1016,24 @@ $('#addJadwal').onclick = () => {
     saveLocal(); render(); toast('Jadwal ditambahkan');
   }, 'Simpan Jadwal');
 };
+
+function formJadwal(id) {
+  const j = S.jadwal.find(x => String(x.id) === String(id));
+  if (!j) return;
+  dialog('Edit Jadwal', `
+    <label>Pilih Alat<select id="jK">${S.alat.map(a => `<option value="${a.kode}" ${a.kode === j.kode ? 'selected' : ''}>${a.kode} - ${esc(a.nama)}</option>`).join('')}</select></label>
+    <label>Jenis Kegiatan<select id="jJ"><option ${j.jenis === 'Verifikasi' ? 'selected' : ''}>Verifikasi</option><option ${j.jenis === 'Kalibrasi' ? 'selected' : ''}>Kalibrasi</option></select></label>
+    <label>Tanggal Rencana<input id="jT" type="date" value="${j.tgl}"></label>
+    <label><input type="checkbox" id="jS" ${j.selesai ? 'checked' : ''} style="width:auto"> Tandai Sudah Selesai</label>
+  `, () => {
+    if (!$('#jT').value) { toast('Pilih tanggal'); return false; }
+    j.kode = $('#jK').value;
+    j.jenis = $('#jJ').value;
+    j.tgl = $('#jT').value;
+    j.selesai = $('#jS').checked;
+    saveLocal(); render(); toast('Jadwal diperbarui');
+  }, 'Simpan Perubahan');
+}
 function selesaiJadwal(id) {
   const j = S.jadwal.find(x => String(x.id) === String(id));
   if (j) j.selesai = true;
@@ -889,15 +1046,47 @@ function hapusJadwal(id) {
 
 /* ===== Pemeriksaan Workbench ===== */
 let cur = null, R = [];
-function cap(k) { const m = String(k || '').trim().match(/^([\d.,]+)\s*(kg|g)\b/i); return m ? { v: parseFloat(m[1].replace(',', '.')), u: m[2].toLowerCase() } : null; }
-const uni = () => (cur && cap(cur.kap) || { u: 'kg' }).u;
+function cap(k) {
+  const m = String(k || '').trim().match(/^([\d.,]+)\s*(kg|gr|g)\b/i);
+  if (!m) return null;
+  const rawU = m[2].toLowerCase();
+  const u = rawU === 'gr' ? 'g' : rawU;
+  return { v: parseFloat(m[1].replace(',', '.')), u, displayU: rawU };
+}
+const uni = () => (cur && cap(cur.kap) ? cap(cur.kap).displayU : 'kg');
 
 function opts(c) {
   if (!c || isNaN(c.v)) return [];
   const { v, u } = c;
-  if (u === 'g') { const o = []; for (let x = 50; x <= v; x += 50) o.push(x); return o.slice(0, 8); }
-  if (v >= 100) return [10, 20, 50, 100, 200, 300, 500].filter(x => x <= v);
-  return [1, 2, 5, 10, 20, 30].filter(x => x <= v);
+
+  // 1. Gram scales
+  if (u === 'g') {
+    // 210 gr -> 100, 200 gr
+    if (v === 210) return [100, 200];
+    // 320 gr -> 100, 200, 300 gr
+    if (v === 320) return [100, 200, 300];
+    // General fallback for gram
+    const gList = [];
+    for (let x = 100; x <= v; x += 100) gList.push(x);
+    return gList.length ? gList : [100, 200];
+  }
+
+  // 2. Kilogram scales
+  if (u === 'kg') {
+    // 6 kg -> 1, 2, 3, 5, 6 kg
+    if (v === 6) return [1, 2, 3, 5, 6];
+    // 30 kg -> 1, 2, 5, 10, 20, 30 kg
+    if (v === 30) return [1, 2, 5, 10, 20, 30];
+    // 100 sampai 1000 kg -> 10, 20, 30, sampai 100 kg
+    if (v >= 100 && v <= 1000) {
+      return [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+    }
+    // General fallbacks
+    if (v < 10) return [1, 2, 3, Math.floor(v)];
+    if (v <= 50) return [1, 2, 5, 10, 20, Math.floor(v)];
+    return [10, 20, 50, 100];
+  }
+  return [];
 }
 
 function drawP() {
@@ -929,11 +1118,16 @@ function pKode() {
   i.innerHTML = n ? `<b>${esc(n.kode)} - ${esc(n.nama)}</b><br><span style="color:var(--muted)">Kapasitas: ${esc(n.kap)} &middot; Pengguna: ${esc(n.user)} &middot; Lokasi: ${esc(n.tempat || '-')}</span>` : 'Kode tidak terdaftar di database alat.';
   if (n !== cur) {
     cur = n;
-    R = cur ? opts(cap(cur.kap)).slice(0, 3).map(b => ({ b, r: '', man: false })) : [];
+    // Otomatis muncul daftar beban uji lengkap sesuai kapasitas
+    const autoLoads = cur ? opts(cap(cur.kap)) : [];
+    R = autoLoads.map(b => ({ b, r: '', man: false }));
     drawP();
   }
   $('#pForm').style.display = $('#pBody').style.display = $('#pAct').style.display = cur ? 'grid' : 'none';
-  if (cur) $('#pBody').style.display = $('#pAct').style.display = 'block';
+  if (cur) {
+    $('#pBody').style.display = $('#pAct').style.display = 'block';
+    if ($('#pTgl') && !$('#pTgl').value) $('#pTgl').value = TD;
+  }
   hitung();
 }
 
@@ -979,16 +1173,17 @@ $('#pSave').onclick = () => {
   if (h.inc) { toast('Lengkapi seluruh pembacaan beban'); return; }
   if (!nm) { toast('Isi nama pemeriksa'); return; }
   const jenis = $('#pJenis').value;
+  const tglPelaksana = ($('#pTgl') && $('#pTgl').value) || TD;
 
   const newId = 'CHK-' + Date.now();
-  S.periksa.unshift({ id: newId, tgl: TD, kode: cur.kode, jenis, sat: uni(), pts: h.pts, tol: h.t, ok: h.ok, nama: nm });
+  S.periksa.unshift({ id: newId, tgl: tglPelaksana, kode: cur.kode, jenis, sat: uni(), pts: h.pts, tol: h.t, ok: h.ok, nama: nm });
 
   // Update schedule & next year date
-  cur.last = TD;
+  cur.last = tglPelaksana;
   const openJ = S.jadwal.find(j => j.kode === cur.kode && !j.selesai);
   if (openJ) openJ.selesai = true;
 
-  const nextD = new Date(TD + 'T00:00:00');
+  const nextD = new Date(tglPelaksana + 'T00:00:00');
   nextD.setFullYear(nextD.getFullYear() + 1);
   const nextIso = nextD.toISOString().slice(0, 10);
   cur.next = nextIso;
@@ -1000,6 +1195,7 @@ $('#pSave').onclick = () => {
 
   // Reset
   R = []; $('#pKode').value = ''; $('#pInfo').classList.remove('show');
+  if ($('#pTgl')) $('#pTgl').value = TD;
   $('#pForm').style.display = $('#pBody').style.display = $('#pAct').style.display = $('#pRes').style.display = 'none';
   cur = null;
 };
@@ -1017,12 +1213,41 @@ function tbPeriksa() {
       <td>${esc(p.jenis)}</td>
       <td>${p.pts.map(x => `${x.beban}&rarr;${x.baca}${p.sat}`).join(', ')}</td>
       <td><span class="tag ${p.ok ? 'ok' : 'bad'}">${p.ok ? 'Memenuhi' : 'Di Luar'}</span></td>
-      <td>
-        <button class="btn sm" onclick="cetakSertifikat('${p.id}')">Sertifikat</button>
-        <button class="btn sm del" onclick="hapusPeriksa('${p.id}')">Hapus</button>
+      <td><span class="tag ${p.ok ? 'ok' : 'bad'}" style="font-weight:800;letter-spacing:0.5px">${p.ok ? 'PASS' : 'FAIL'}</span></td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:4px">
+          <button class="btn sm pri" onclick="cetakSertifikat('${p.id}')" title="Hasil (Dokumen PDF / Cetak)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </button>
+          <button class="btn sm" onclick="formEditPeriksa('${p.id}')" title="Edit Riwayat Pemeriksaan">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="btn sm del" onclick="hapusPeriksa('${p.id}')" title="Hapus Riwayat">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </button>
+        </div>
       </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Belum ada riwayat pemeriksaan</td></tr>';
+  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px">Belum ada riwayat pemeriksaan</td></tr>';
+}
+
+function formEditPeriksa(pid) {
+  const p = S.periksa.find(x => String(x.id) === String(pid));
+  if (!p) return;
+  dialog(`Edit Data Pemeriksaan (${p.kode})`, `
+    <label>Tanggal Pelaksanaan<input id="edTgl" type="date" value="${p.tgl}"></label>
+    <label>Jenis Kegiatan<select id="edJenis"><option ${p.jenis === 'Verifikasi' ? 'selected' : ''}>Verifikasi</option><option ${p.jenis === 'Kalibrasi' ? 'selected' : ''}>Kalibrasi</option></select></label>
+    <label>Nama Pemeriksa / Teknisi<input id="edNama" value="${esc(p.nama)}"></label>
+    <label>Toleransi (%)<input id="edTol" type="number" step="any" value="${p.tol}"></label>
+    <label>Hasil Kelaikan<select id="edOk"><option value="true" ${p.ok ? 'selected' : ''}>MEMENUHI (PASS)</option><option value="false" ${!p.ok ? 'selected' : ''}>DI LUAR TOLERANSI (FAIL)</option></select></label>
+  `, () => {
+    p.tgl = $('#edTgl').value || p.tgl;
+    p.jenis = $('#edJenis').value;
+    p.nama = $('#edNama').value.trim() || p.nama;
+    p.tol = parseFloat($('#edTol').value) || p.tol;
+    p.ok = $('#edOk').value === 'true';
+    saveLocal(); render(); toast('Data pemeriksaan berhasil diperbarui');
+  }, 'Simpan Perubahan');
 }
 
 function hapusPeriksa(id) {
@@ -1087,35 +1312,230 @@ $('#btnScan').onclick = scan;
 $('#qrX').onclick = stopScan;
 $('#dlgScan').addEventListener('close', stopScan);
 
-/* ===== Google Sheets Integration ===== */
+/* ===== Google Sheets Integration (Kerangka Siap Pakai 2-Arah) ===== */
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  return lines.map(line => {
+    const row = [];
+    let curVal = '';
+    let insideQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (insideQuote && line[i + 1] === '"') {
+          curVal += '"';
+          i++;
+        } else {
+          insideQuote = !insideQuote;
+        }
+      } else if (c === ',' && !insideQuote) {
+        row.push(curVal.trim());
+        curVal = '';
+      } else {
+        curVal += c;
+      }
+    }
+    row.push(curVal.trim());
+    return row.map(v => v.replace(/^"|"$/g, '').trim());
+  });
+}
+
+function getSheetId() {
+  const raw = ($('#sheetInput').value || localStorage.getItem('kalibrasi_sheet_id') || '').trim();
+  const m = raw.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  return m ? m[1] : raw;
+}
+
 $('#btnSheets').onclick = () => {
   $('#sheetInput').value = localStorage.getItem('kalibrasi_sheet_id') || '';
+  if ($('#scriptUrlInput')) $('#scriptUrlInput').value = localStorage.getItem('kalibrasi_script_url') || '';
   $('#dlgSheets').showModal();
 };
 
 $('#btnConnectSheet').onclick = () => {
-  const raw = $('#sheetInput').value.trim();
-  const m = raw.match(/\/d\/([a-zA-Z0-9-_]+)/);
-  const id = m ? m[1] : raw;
+  const id = getSheetId();
   if (!id) { toast('Masukkan ID atau URL Google Sheets yang valid'); return; }
   localStorage.setItem('kalibrasi_sheet_id', id);
   toast('ID Google Sheets tersimpan: ' + id);
-  $('#dlgSheets').close();
 };
 
 $('#btnExportToSheet').onclick = () => {
-  const id = localStorage.getItem('kalibrasi_sheet_id');
-  if (!id) { toast('Hubungkan ID Google Sheets terlebih dahulu'); return; }
-  toast('Data siap disinkronkan. Buka spreadsheet untuk melihat struktur tab.');
+  const id = getSheetId();
+  if (!id) { toast('Masukkan ID atau URL Google Sheets terlebih dahulu'); return; }
   window.open(`https://docs.google.com/spreadsheets/d/${id}`, '_blank');
 };
 
-$('#btnPullFromSheet').onclick = () => {
-  toast('Data telah diselaraskan dengan spreadsheet Google Sheets.');
+$('#btnSalinTemplate').onclick = () => {
+  const templateInfo = `TAB 1: Daftar_Alat\nKode Alat\tNama Alat\tKapasitas\tPengguna\tTempat Kalibrasi\tKalibrasi Terakhir\tKalibrasi Berikutnya\n\nTAB 2: Jadwal\nID Jadwal\tKode Alat\tJenis Kegiatan\tTanggal Rencana\tStatus Selesai\n\nTAB 3: Riwayat_Pemeriksaan\nID Pemeriksaan\tTanggal\tKode Alat\tJenis\tSatuan\tToleransi (%)\tHasil\tPemeriksa\tTitik Uji`;
+  navigator.clipboard.writeText(templateInfo).then(() => {
+    toast('Header kerangka 3 tab berhasil disalin ke Clipboard!');
+  }).catch(() => toast('Gagal menyalin ke clipboard'));
 };
 
+$('#btnCopyDataTSV').onclick = () => {
+  // Generate TSV for Daftar_Alat
+  const rows = [
+    ['Kode Alat', 'Nama Alat', 'Kapasitas', 'Pengguna', 'Tempat Kalibrasi', 'Kalibrasi Terakhir', 'Kalibrasi Berikutnya'],
+    ...S.alat.map(a => [a.kode, a.nama, a.kap, a.user, a.tempat || '-', a.last || '-', a.next || '-'])
+  ];
+  const tsv = rows.map(r => r.join('\t')).join('\n');
+  navigator.clipboard.writeText(tsv).then(() => {
+    toast('Data Daftar_Alat (TSV) berhasil disalin! Silakan paste (Ctrl+V) di Google Sheets tab Daftar_Alat.');
+  }).catch(() => toast('Gagal menyalin'));
+};
+
+$('#btnPullFromSheet').onclick = async () => {
+  const id = getSheetId();
+  if (!id) { toast('Masukkan ID atau URL Google Sheets terlebih dahulu'); return; }
+  localStorage.setItem('kalibrasi_sheet_id', id);
+
+  toast('Menghubungkan & menarik data dari Google Sheets...');
+
+  try {
+    let alatCount = 0, jadwalCount = 0, periksaCount = 0;
+
+    // 1. Tarik Tab Daftar_Alat
+    try {
+      const resAlat = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Daftar_Alat`);
+      if (resAlat.ok) {
+        const textAlat = await resAlat.text();
+        const rows = parseCSV(textAlat);
+        if (rows.length > 1) {
+          const parsedAlat = [];
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            if (r[0] && r[0].trim()) {
+              parsedAlat.push({
+                kode: r[0].trim().toUpperCase(),
+                nama: r[1] ? r[1].trim() : r[0].trim(),
+                kap: r[2] ? r[2].trim() : '30 kg',
+                user: r[3] ? r[3].trim() : 'Umum',
+                tempat: r[4] ? r[4].trim() : '',
+                last: r[5] ? r[5].trim() : '',
+                next: r[6] ? r[6].trim() : ''
+              });
+            }
+          }
+          if (parsedAlat.length > 0) {
+            S.alat = parsedAlat;
+            alatCount = parsedAlat.length;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal membaca tab Daftar_Alat', e);
+    }
+
+    // 2. Tarik Tab Jadwal
+    try {
+      const resJadwal = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Jadwal`);
+      if (resJadwal.ok) {
+        const textJadwal = await resJadwal.text();
+        const rows = parseCSV(textJadwal);
+        if (rows.length > 1) {
+          const parsedJadwal = [];
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            if (r[1] && r[1].trim()) {
+              parsedJadwal.push({
+                id: r[0] ? r[0].trim() : 'SCH-' + (Date.now() + i),
+                kode: r[1].trim().toUpperCase(),
+                jenis: (r[2] || '').toLowerCase().includes('kalibrasi') ? 'Kalibrasi' : 'Verifikasi',
+                tgl: r[3] ? r[3].trim() : iso(0),
+                selesai: String(r[4] || '').toUpperCase() === 'TRUE' || String(r[4] || '').toLowerCase() === 'selesai'
+              });
+            }
+          }
+          if (parsedJadwal.length > 0) {
+            S.jadwal = parsedJadwal;
+            jadwalCount = parsedJadwal.length;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal membaca tab Jadwal', e);
+    }
+
+    // 3. Tarik Tab Riwayat_Pemeriksaan
+    try {
+      const resPeriksa = await fetch(`https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&sheet=Riwayat_Pemeriksaan`);
+      if (resPeriksa.ok) {
+        const textPeriksa = await resPeriksa.text();
+        const rows = parseCSV(textPeriksa);
+        if (rows.length > 1) {
+          const parsedPeriksa = [];
+          for (let i = 1; i < rows.length; i++) {
+            const r = rows[i];
+            if (r[2] && r[2].trim()) {
+              let pts = [];
+              try {
+                if (r[8] && (r[8].startsWith('[') || r[8].startsWith('{'))) {
+                  pts = JSON.parse(r[8]);
+                }
+              } catch (e) {}
+              if (!Array.isArray(pts) || !pts.length) {
+                pts = [{ beban: 10, baca: 10, ok: true }];
+              }
+              const isPass = String(r[6] || '').toUpperCase().includes('MEMENUHI') || String(r[6] || '').toUpperCase() === 'PASS' || String(r[6] || '').toUpperCase() === 'TRUE';
+              parsedPeriksa.push({
+                id: r[0] ? r[0].trim() : 'CHK-' + (Date.now() + i),
+                tgl: r[1] ? r[1].trim() : iso(0),
+                kode: r[2].trim().toUpperCase(),
+                jenis: (r[3] || '').toLowerCase().includes('kalibrasi') ? 'Kalibrasi' : 'Verifikasi',
+                sat: r[4] ? r[4].trim() : 'kg',
+                tol: parseFloat(r[5]) || 0.1,
+                ok: isPass,
+                nama: r[7] ? r[7].trim() : 'Teknisi QA',
+                pts
+              });
+            }
+          }
+          if (parsedPeriksa.length > 0) {
+            S.periksa = parsedPeriksa;
+            periksaCount = parsedPeriksa.length;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Gagal membaca tab Riwayat_Pemeriksaan', e);
+    }
+
+    if (alatCount > 0 || jadwalCount > 0 || periksaCount > 0) {
+      saveLocal();
+      render();
+      toast(`Berhasil sinkron dari Google Sheets! (${alatCount} alat, ${jadwalCount} jadwal, ${periksaCount} riwayat)`);
+      $('#dlgSheets').close();
+    } else {
+      toast('Spreadsheet terbaca namun belum ada baris data atau format tab belum sesuai (Daftar_Alat, Jadwal, Riwayat_Pemeriksaan)');
+    }
+  } catch (err) {
+    console.error(err);
+    toast('Gagal mengakses Google Sheets. Pastikan link dapat diakses publik/siapa saja dengan link.');
+  }
+};
+
+if ($('#btnPushToScript')) {
+  $('#btnPushToScript').onclick = async () => {
+    const url = ($('#scriptUrlInput').value || '').trim();
+    if (!url) { toast('Masukkan URL Web App Google Apps Script'); return; }
+    localStorage.setItem('kalibrasi_script_url', url);
+    toast('Mengirim seluruh data web ke Google Sheets...');
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(S),
+        mode: 'no-cors'
+      });
+      toast('Pembaruan data berhasil dikirim ke Google Sheets!');
+    } catch (e) {
+      toast('Gagal mengirim ke Google Apps Script');
+    }
+  };
+}
+
 /* ===== Backup & Import ===== */
-$('#btnBackup').onclick = () => { $('#dlgBackup').showModal(); };
+if ($('#btnBackup')) $('#btnBackup').onclick = () => { $('#dlgBackup').showModal(); };
 
 $('#btnExportJSON').onclick = () => {
   const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
@@ -1197,6 +1617,103 @@ function dialog(t, html, fn, label) {
 }
 $('#dForm').onsubmit = e => { e.preventDefault(); if (onOk && onOk() === false) return; $('#dlg').close(); };
 $('#dCancel').onclick = () => $('#dlg').close();
+
+/* ===== Export Kerangka Multi-Tab Excel (.xls) ===== */
+function exportKerangkaExcel() {
+  const xml = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Header">
+   <Font ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#0F5C6E" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Daftar_Alat">
+  <Table>
+   <Row ss:StyleID="Header">
+    <Cell><Data ss:Type="String">Kode Alat</Data></Cell>
+    <Cell><Data ss:Type="String">Nama Alat</Data></Cell>
+    <Cell><Data ss:Type="String">Kapasitas</Data></Cell>
+    <Cell><Data ss:Type="String">Pengguna</Data></Cell>
+    <Cell><Data ss:Type="String">Tempat Kalibrasi</Data></Cell>
+    <Cell><Data ss:Type="String">Kalibrasi Terakhir</Data></Cell>
+    <Cell><Data ss:Type="String">Kalibrasi Berikutnya</Data></Cell>
+   </Row>
+   ${S.alat.map(a => `
+   <Row>
+    <Cell><Data ss:Type="String">${esc(a.kode)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(a.nama)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(a.kap)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(a.user)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(a.tempat || '-')}</Data></Cell>
+    <Cell><Data ss:Type="String">${a.last || ''}</Data></Cell>
+    <Cell><Data ss:Type="String">${a.next || ''}</Data></Cell>
+   </Row>`).join('')}
+  </Table>
+ </Worksheet>
+ <Worksheet ss:Name="Jadwal">
+  <Table>
+   <Row ss:StyleID="Header">
+    <Cell><Data ss:Type="String">ID Jadwal</Data></Cell>
+    <Cell><Data ss:Type="String">Kode Alat</Data></Cell>
+    <Cell><Data ss:Type="String">Jenis Kegiatan</Data></Cell>
+    <Cell><Data ss:Type="String">Tanggal Rencana</Data></Cell>
+    <Cell><Data ss:Type="String">Status Selesai</Data></Cell>
+   </Row>
+   ${S.jadwal.map(j => `
+   <Row>
+    <Cell><Data ss:Type="String">${esc(j.id)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(j.kode)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(j.jenis)}</Data></Cell>
+    <Cell><Data ss:Type="String">${j.tgl || ''}</Data></Cell>
+    <Cell><Data ss:Type="String">${j.selesai ? 'TRUE' : 'FALSE'}</Data></Cell>
+   </Row>`).join('')}
+  </Table>
+ </Worksheet>
+ <Worksheet ss:Name="Riwayat_Pemeriksaan">
+  <Table>
+   <Row ss:StyleID="Header">
+    <Cell><Data ss:Type="String">ID Pemeriksaan</Data></Cell>
+    <Cell><Data ss:Type="String">Tanggal</Data></Cell>
+    <Cell><Data ss:Type="String">Kode Alat</Data></Cell>
+    <Cell><Data ss:Type="String">Jenis</Data></Cell>
+    <Cell><Data ss:Type="String">Satuan</Data></Cell>
+    <Cell><Data ss:Type="String">Toleransi (%)</Data></Cell>
+    <Cell><Data ss:Type="String">Hasil</Data></Cell>
+    <Cell><Data ss:Type="String">Pemeriksa</Data></Cell>
+    <Cell><Data ss:Type="String">Titik Uji</Data></Cell>
+   </Row>
+   ${S.periksa.map(p => `
+   <Row>
+    <Cell><Data ss:Type="String">${esc(p.id)}</Data></Cell>
+    <Cell><Data ss:Type="String">${p.tgl || ''}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(p.kode)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(p.jenis)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(p.sat)}</Data></Cell>
+    <Cell><Data ss:Type="Number">${p.tol}</Data></Cell>
+    <Cell><Data ss:Type="String">${p.ok ? 'MEMENUHI' : 'DI LUAR'}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(p.nama)}</Data></Cell>
+    <Cell><Data ss:Type="String">${esc(JSON.stringify(p.pts))}</Data></Cell>
+   </Row>`).join('')}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Kerangka_Kalibrasi_Timbangan_${TD}.xls`;
+  a.click();
+  toast('Kerangka format Excel (.xls) 3 Tab berhasil diunduh! Buka di Excel atau Import ke Google Sheets.');
+}
+
+if ($('#dlgCert')) $('#dlgCert').addEventListener('close', () => { if ($('#print-area')) $('#print-area').innerHTML = ''; });
+if ($('#dlgQR')) $('#dlgQR').addEventListener('close', () => { if ($('#print-area')) $('#print-area').innerHTML = ''; });
 
 function render() {
   dashboard();
