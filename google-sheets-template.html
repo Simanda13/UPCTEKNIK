@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Panduan & Script Integrasi Google Sheets 2-Arah</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0e2433; padding: 24px; max-width: 900px; margin: 0 auto; line-height: 1.6; }
+    h1, h2 { color: #0f5c6e; }
+    .card { background: #fff; border-radius: 12px; border: 1px solid #cbd5e1; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    pre { background: #0f172a; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: "JetBrains Mono", monospace; font-size: 13px; }
+    button { background: #0f5c6e; color: #fff; border: 0; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    button:hover { background: #0d4b5a; }
+    .step { display: flex; gap: 12px; margin-bottom: 12px; }
+    .num { background: #0f5c6e; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+  <h1>Kerangka Siap Pakai Google Sheets (2-Arah)</h1>
+  <p>Gunakan script ini agar Anda bisa <b>Menambah, Mengedit, dan Menghapus</b> data timbangan lewat Google Sheets maupun Aplikasi Web.</p>
+
+  <div class="card">
+    <h2>Langkah Pemasangan (Hanya 1 Menit)</h2>
+    <div class="step"><div class="num">1</div><div>Buka Google Sheets Anda (atau buat baru di <b>sheets.new</b>).</div></div>
+    <div class="step"><div class="num">2</div><div>Klik menu <b>Ekstensi (Extensions) &rarr; Apps Script</b>.</div></div>
+    <div class="step"><div class="num">3</div><div>Hapus semua teks yang ada, lalu salin dan tempel kode di bawah ini.</div></div>
+    <div class="step"><div class="num">4</div><div>Klik <b>Simpan (Ctrl+S)</b>, lalu jalankan fungsi <code>setupSheet()</code> sekali untuk membuat 3 tab otomatis.</div></div>
+    <div class="step"><div class="num">5</div><div>Klik tombol biru <b>Terapkan (Deploy) &rarr; Penerapan Baru (New deployment)</b>.</div></div>
+    <div class="step"><div class="num">6</div><div>Pilih <b>Aplikasi Web (Web App)</b>, atur <i>Akses: Siapa Saja (Anyone)</i>, lalu klik <b>Terapkan</b>.</div></div>
+    <div class="step"><div class="num">7</div><div>Salin URL Aplikasi Web yang diberikan, lalu masukkan ke menu Google Sheets di aplikasi web.</div></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+      <h2>Kode Google Apps Script (Code.gs)</h2>
+      <button onclick="salinKode()">Salin Kode Script</button>
+    </div>
+    <pre id="codeBlock">/* Muat dari file google-apps-script.js */</pre>
+  </div>
+
+  <script>
+    fetch('/google-apps-script.js')
+      .then(res => res.text())
+      .then(t => { document.getElementById('codeBlock').textContent = t; });
+
+    function salinKode() {
+      const code = document.getElementById('codeBlock').textContent;
+      navigator.clipboard.writeText(code).then(() => alert('Kode berhasil disalin ke clipboard!'));
+    }
+  </script>
+</body>
+</html>

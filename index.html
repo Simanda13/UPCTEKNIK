@@ -223,12 +223,7 @@ section.view{display:none}section.view.on{display:block}
 <section class="view on" id="v-dashboard">
  <header class="top">
   <div><h1>Dashboard Metrologi</h1><p class="sub" id="dSub"></p></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap">
-   <button class="btn" onclick="exportKerangkaExcel()" title="Unduh Format Excel 3 Tab Siap Pakai untuk Google Sheets">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg> Unduh Format Excel (.xls)
-   </button>
-   <button class="btn pri" onclick="go('periksa')">+ Pemeriksaan Baru</button>
-  </div>
+  <button class="btn pri" onclick="go('periksa')">+ Pemeriksaan Baru</button>
  </header>
  <div class="stats" id="stats"></div>
 
@@ -370,43 +365,39 @@ section.view{display:none}section.view.on{display:block}
   <h3 style="margin:0">Integrasi 2-Arah Google Sheets</h3>
   <button class="btn sm" onclick="$('#dlgSheets').close()">&times;</button>
  </div>
- <p class="sub" style="margin-bottom:14px">Hubungkan ke kerangka Google Sheets siap pakai. Anda dapat mengedit, menambah, atau menghapus data langsung lewat Google Sheets atau lewat aplikasi web.</p>
+ <p class="sub" style="margin-bottom:14px">Sinkronisasi 2-arah: Anda dapat <b>menambah, mengedit, atau menghapus</b> data lewat Google Sheets maupun aplikasi web.</p>
 
- <!-- Kerangka Template Siap Pakai -->
+ <!-- Kerangka & Script Siap Download -->
  <div style="padding:14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin-bottom:14px;font-size:13px">
-  <div style="font-weight:700;color:#166534;margin-bottom:4px">Kerangka Spreadsheet Siap Pakai (3 Tab Otomatis):</div>
+  <div style="font-weight:700;color:#166534;margin-bottom:4px">Paket Kerangka Siap Download &amp; Pasang:</div>
   <div style="color:#15803d;font-size:12px;margin-bottom:10px;line-height:1.6">
-   Nama sheet/tab di Google Sheets Anda:<br>
-   &bull; <b>Daftar_Alat</b>: Kode Alat | Nama Alat | Kapasitas | Pengguna | Tempat Kalibrasi | Terakhir | Berikutnya<br>
-   &bull; <b>Jadwal</b>: ID Jadwal | Kode Alat | Jenis Kegiatan | Tanggal Rencana | Status Selesai<br>
-   &bull; <b>Riwayat_Pemeriksaan</b>: ID | Tanggal | Kode Alat | Jenis | Satuan | Toleransi (%) | Hasil | Pemeriksa | Titik Uji
+   Download kode script Google Apps Script (<code>Code.gs</code>) atau salin langsung untuk dipasang di <b>Ekstensi &rarr; Apps Script</b> pada spreadsheet Anda.
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
-   <button class="btn sm pri" onclick="exportKerangkaExcel()">Unduh File Excel (3 Tab Siap Pakai)</button>
-   <button class="btn sm" id="btnSalinTemplate">Salin Header 3 Tab ke Clipboard</button>
-   <button class="btn sm" id="btnCopyDataTSV">Salin Seluruh Data Web (Siap Paste ke Sheets)</button>
+   <button class="btn sm pri" id="btnDownloadCodeGS">📥 Unduh Script Code.gs</button>
+   <button class="btn sm" id="btnDownloadTemplateHTML">📥 Unduh Panduan HTML</button>
+   <button class="btn sm" id="btnSalinScriptCode">📋 Salin Kode Script (Code.gs)</button>
+   <button class="btn sm" onclick="exportKerangkaExcel()">📊 Unduh Kerangka Excel (.xls)</button>
   </div>
  </div>
 
  <div class="form" style="grid-template-columns:1fr;gap:12px">
-  <label>ID atau URL Google Sheets Anda
+  <label>URL Web App Google Apps Script (Untuk Tambah/Edit/Hapus Otomatis 2-Arah)
+   <input id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+   <small style="color:var(--muted);font-weight:normal">💡 Dapatkan URL ini dari menu <i>Terapkan (Deploy) &rarr; Penerapan Baru (Web App)</i> di Google Sheets.</small>
+  </label>
+
+  <label>ID atau Link Google Sheets Anda (Opsional untuk Buka Spreadsheet)
    <input id="sheetInput" placeholder="https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5n... atau ID spreadsheet">
-   <small style="color:var(--muted);font-weight:normal">💡 Pastikan izin berbagi spreadsheet telah dibuka: <i>Siapa saja yang memiliki link dapat melihat/mengedit</i>.</small>
   </label>
  </div>
 
- <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
-  <button class="btn pri" id="btnPullFromSheet">Tarik Data dari Google Sheets</button>
-  <button class="btn" id="btnExportToSheet">Buka di Google Sheets</button>
-  <button class="btn" id="btnConnectSheet">Simpan ID</button>
+ <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+  <button class="btn pri" id="btnPullFromSheet">⬇️ Tarik Data dari Google Sheets</button>
+  <button class="btn pri" id="btnPushToScript" style="background:#0284c7;border-color:#0284c7">⬆️ Kirim Data ke Google Sheets</button>
+  <button class="btn" id="btnExportToSheet">↗️ Buka di Google Sheets</button>
+  <button class="btn" id="btnConnectSheet">💾 Simpan URL &amp; ID</button>
  </div>
-
- <details style="margin-top:14px;padding:10px 14px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;font-size:12px">
-  <summary style="font-weight:700;cursor:pointer;color:var(--brand)">Opsi Pengiriman Otomatis (Google Apps Script Web App)</summary>
-  <p style="margin:8px 0;color:var(--muted)">Untuk mengirim pembaruan dari web langsung ke Google Sheets secara otomatis tanpa copy-paste, masukkan URL Web App Google Apps Script Anda:</p>
-  <input id="scriptUrlInput" placeholder="https://script.google.com/macros/s/.../exec" style="margin-bottom:8px">
-  <button class="btn sm" id="btnPushToScript">Kirim Data ke Google Sheets</button>
- </details>
 
  <div class="acts" style="margin-top:20px">
   <button class="btn" onclick="$('#dlgSheets').close()">Tutup</button>
@@ -483,7 +474,20 @@ const defaultDB = {
 };
 
 let S = JSON.parse(localStorage.getItem('kalibrasi_html_db') || 'null') || defaultDB;
-const saveLocal = () => { localStorage.setItem('kalibrasi_html_db', JSON.stringify(S)); };
+const saveLocal = () => {
+  localStorage.setItem('kalibrasi_html_db', JSON.stringify(S));
+  const scriptUrl = localStorage.getItem('kalibrasi_script_url');
+  if (scriptUrl) {
+    try {
+      fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(S),
+        mode: 'no-cors'
+      }).catch(() => {});
+    } catch (e) {}
+  }
+};
 
 const dleft = d => Math.round((new Date(d + 'T00:00:00') - new Date(TD + 'T00:00:00')) / day);
 const sisa = d => {
@@ -1352,11 +1356,60 @@ $('#btnSheets').onclick = () => {
   $('#dlgSheets').showModal();
 };
 
+// 1. Download File Script Code.gs
+if ($('#btnDownloadCodeGS')) {
+  $('#btnDownloadCodeGS').onclick = () => {
+    fetch('/google-apps-script.js')
+      .then(res => res.text())
+      .then(code => {
+        const blob = new Blob([code], { type: 'text/javascript;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Code.gs';
+        a.click();
+        toast('File Code.gs berhasil diunduh! Siap dipasang di Apps Script Google Sheets.');
+      })
+      .catch(() => toast('Gagal mengunduh file script'));
+  };
+}
+
+// 2. Download File Panduan HTML
+if ($('#btnDownloadTemplateHTML')) {
+  $('#btnDownloadTemplateHTML').onclick = () => {
+    fetch('/google-sheets-template.html')
+      .then(res => res.text())
+      .then(html => {
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'Panduan_Integrasi_Google_Sheets.html';
+        a.click();
+        toast('Panduan HTML berhasil diunduh!');
+      })
+      .catch(() => toast('Gagal mengunduh file panduan'));
+  };
+}
+
+// 3. Salin Kode Script ke Clipboard
+if ($('#btnSalinScriptCode')) {
+  $('#btnSalinScriptCode').onclick = () => {
+    fetch('/google-apps-script.js')
+      .then(res => res.text())
+      .then(code => {
+        navigator.clipboard.writeText(code).then(() => {
+          toast('Seluruh kode Google Apps Script (Code.gs) berhasil disalin ke Clipboard!');
+        });
+      })
+      .catch(() => toast('Gagal menyalin kode'));
+  };
+}
+
 $('#btnConnectSheet').onclick = () => {
   const id = getSheetId();
-  if (!id) { toast('Masukkan ID atau URL Google Sheets yang valid'); return; }
-  localStorage.setItem('kalibrasi_sheet_id', id);
-  toast('ID Google Sheets tersimpan: ' + id);
+  const scriptUrl = ($('#scriptUrlInput') && $('#scriptUrlInput').value.trim()) || '';
+  if (id) localStorage.setItem('kalibrasi_sheet_id', id);
+  if (scriptUrl) localStorage.setItem('kalibrasi_script_url', scriptUrl);
+  toast('Konfigurasi Google Sheets berhasil disimpan!');
 };
 
 $('#btnExportToSheet').onclick = () => {
@@ -1365,28 +1418,31 @@ $('#btnExportToSheet').onclick = () => {
   window.open(`https://docs.google.com/spreadsheets/d/${id}`, '_blank');
 };
 
-$('#btnSalinTemplate').onclick = () => {
-  const templateInfo = `TAB 1: Daftar_Alat\nKode Alat\tNama Alat\tKapasitas\tPengguna\tTempat Kalibrasi\tKalibrasi Terakhir\tKalibrasi Berikutnya\n\nTAB 2: Jadwal\nID Jadwal\tKode Alat\tJenis Kegiatan\tTanggal Rencana\tStatus Selesai\n\nTAB 3: Riwayat_Pemeriksaan\nID Pemeriksaan\tTanggal\tKode Alat\tJenis\tSatuan\tToleransi (%)\tHasil\tPemeriksa\tTitik Uji`;
-  navigator.clipboard.writeText(templateInfo).then(() => {
-    toast('Header kerangka 3 tab berhasil disalin ke Clipboard!');
-  }).catch(() => toast('Gagal menyalin ke clipboard'));
-};
-
-$('#btnCopyDataTSV').onclick = () => {
-  // Generate TSV for Daftar_Alat
-  const rows = [
-    ['Kode Alat', 'Nama Alat', 'Kapasitas', 'Pengguna', 'Tempat Kalibrasi', 'Kalibrasi Terakhir', 'Kalibrasi Berikutnya'],
-    ...S.alat.map(a => [a.kode, a.nama, a.kap, a.user, a.tempat || '-', a.last || '-', a.next || '-'])
-  ];
-  const tsv = rows.map(r => r.join('\t')).join('\n');
-  navigator.clipboard.writeText(tsv).then(() => {
-    toast('Data Daftar_Alat (TSV) berhasil disalin! Silakan paste (Ctrl+V) di Google Sheets tab Daftar_Alat.');
-  }).catch(() => toast('Gagal menyalin'));
-};
-
 $('#btnPullFromSheet').onclick = async () => {
+  const scriptUrl = ($('#scriptUrlInput') && $('#scriptUrlInput').value.trim()) || localStorage.getItem('kalibrasi_script_url') || '';
   const id = getSheetId();
-  if (!id) { toast('Masukkan ID atau URL Google Sheets terlebih dahulu'); return; }
+
+  // Jika URL Apps Script terpasang, tarik langsung JSON 2-arah
+  if (scriptUrl) {
+    toast('Menghubungkan ke Google Apps Script Web App...');
+    try {
+      const res = await fetch(scriptUrl);
+      const json = await res.json();
+      if (json && json.status === 'success' && json.data) {
+        if (Array.isArray(json.data.alat) && json.data.alat.length > 0) S.alat = json.data.alat;
+        if (Array.isArray(json.data.jadwal)) S.jadwal = json.data.jadwal;
+        if (Array.isArray(json.data.periksa)) S.periksa = json.data.periksa;
+        saveLocal(); render();
+        toast(`Berhasil sinkron 2-arah dari Google Sheets! (${S.alat.length} alat, ${S.jadwal.length} jadwal, ${S.periksa.length} riwayat)`);
+        $('#dlgSheets').close();
+        return;
+      }
+    } catch (err) {
+      console.warn('Apps Script direct pull failed, trying CSV fallback', err);
+    }
+  }
+
+  if (!id) { toast('Masukkan URL Apps Script atau ID Google Sheets'); return; }
   localStorage.setItem('kalibrasi_sheet_id', id);
 
   toast('Menghubungkan & menarik data dari Google Sheets...');
